@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+	<extension point="org.eclipse.ui.preferencePages">
+	    <page
+	        class="su.softcom.cldt.testing.ui.CoveragePreferencePage"
+	        id="su.softcom.cldt.testing.coveragePreferencePage"
+	        name="%page.name">
+	    </page>
+	</extension>
+   
+    <extension point="org.eclipse.debug.ui.launchConfigurationTabGroups">
+        <launchConfigurationTabGroup
+            class="su.softcom.cldt.testing.ui.CoverageTabGroup"
+            id="su.softcom.cldt.testing.tabGroup"
+            type="su.softcom.cldt.testing.launchConfigType">
+        </launchConfigurationTabGroup>
+    </extension>
+ 
+    <extension point="org.eclipse.debug.core.launchConfigurationTypes">
+        <launchConfigurationType
+            id="su.softcom.cldt.testing.launchConfigType"
+            delegate="su.softcom.cldt.testing.core.LaunchConfigurationDelegate"
+            modes="profile"
+            name="%launchConfigurationType.name">
+        </launchConfigurationType>
+    </extension>
+    
+    <extension point="org.eclipse.ui.views">
+	    <view
+	        id="su.softcom.cldt.testing.ui.CoverageResultView"
+	        name="%view.name"
+	        class="su.softcom.cldt.testing.ui.CoverageResultView"
+	        category="org.eclipse.ui.category.views">
+	    </view>
+	</extension>
+</plugin>
