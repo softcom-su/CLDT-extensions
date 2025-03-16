@@ -1,0 +1,39 @@
+package su.softcom.cldt.testing.ui;
+
+import org.eclipse.osgi.util.NLS;
+
+public class Messages extends NLS {
+	private static final String BUNDLE_NAME = Messages.class.getPackageName() + ".messages"; //$NON-NLS-1$
+	public static String CoveragePreferencePage_0;
+	public static String CoveragePreferencePage_1;
+	public static String CoveragePreferencePage_2;
+	public static String CoveragePreferencePage_3;
+	public static String CoveragePreferencePage_4;
+	public static String CoveragePreferencePage_5;
+	public static String CoveragePreferencePage_6;
+	public static String CoverageResultView_1;
+	public static String CoverageResultView_2;
+	public static String CoverageResultView_3;
+	public static String CoverageResultView_4;
+	public static String CoverageResultView_5;
+	public static String CoverageResultView_6;
+	public static String CoverageResultView_7;
+	public static String CoverageResultView_8;
+	public static String CoverageResultView_9;
+	public static String CoverageResultView_10;
+	public static String CoverageResultView_11;
+	public static String CoverageResultView_12;
+	public static String CoverageResultView_13;
+	public static String CoverageResultView_14;
+	public static String CoverageResultView_15;
+	public static String CoverageResultView_16;
+	public static String CoverageTab_0;
+	public static String CoverageTab_1;
+	static {
+		// initialize resource bundle
+		NLS.initializeMessages(BUNDLE_NAME, Messages.class);
+	}
+
+	private Messages() {
+	}
+}
