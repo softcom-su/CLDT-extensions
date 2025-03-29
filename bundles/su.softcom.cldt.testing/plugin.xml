@@ -20,7 +20,7 @@
     <extension point="org.eclipse.debug.core.launchConfigurationTypes">
         <launchConfigurationType
             id="su.softcom.cldt.testing.launchConfigType"
-            delegate="su.softcom.cldt.testing.core.LaunchConfigurationDelegate"
+            delegate="su.softcom.cldt.testing.core.CoverageLaunchDelegate"
             modes="profile"
             name="%launchConfigurationType.name">
         </launchConfigurationType>

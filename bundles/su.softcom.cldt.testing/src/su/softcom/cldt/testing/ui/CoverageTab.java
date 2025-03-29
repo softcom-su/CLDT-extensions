@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -30,6 +32,7 @@ import org.eclipse.ui.PlatformUI;
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageTab extends AbstractLaunchConfigurationTab {
+	private static final Logger LOGGER = Logger.getLogger(CoverageTab.class.getName());
 	private CheckboxTableViewer tableViewer;
 	public static List<String> analysisScope = new ArrayList<>();
 	public static String iproject = getCurrentProject();
@@ -55,10 +58,10 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 			if (project != null) {
 				populateFileList(project);
 			} else {
-				System.err.println("Project not found: " + currentProjectName);
+				LOGGER.log(Level.SEVERE, "Project not found: {0}", currentProjectName);
 			}
 		} else {
-			System.err.println("No active project selected.");
+			LOGGER.log(Level.WARNING, "No active project selected.");
 		}
 
 		setControl(composite);
@@ -86,12 +89,16 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				tableViewer.add(CoverageUtils.removeFirstSegment(file, 1));
 			}
 		} catch (CoreException e) {
-			e.printStackTrace();
+			LOGGER.log(Level.SEVERE, "Error populating file list", e);
 		}
 	}
 
-	private static final Set<String> EXCLUDED_FILES_AND_FOLDERS = new HashSet<>(
-			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md"));
+	private static final Set<String> EXCLUDED_FILES_AND_FOLDERS;
+
+	static {
+		EXCLUDED_FILES_AND_FOLDERS = new HashSet<>(
+				Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md"));
+	}
 
 	private void collectFiles(IResource resource, List<String> files) throws CoreException {
 		if (EXCLUDED_FILES_AND_FOLDERS.contains(resource.getName())) {
@@ -123,7 +130,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 			analysisScope.addAll(savedScope);
 			tableViewer.setCheckedElements(savedScope.toArray());
 		} catch (CoreException e) {
-			e.printStackTrace();
+			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e);
 		}
 	}
 
