@@ -4,23 +4,29 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IncrementalProjectBuilder;
+import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
+import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
 import org.eclipse.ui.PlatformUI;
 
+import su.softcom.cldt.core.CMakeCorePlugin;
+import su.softcom.cldt.core.cmake.ICMakeProject;
 import su.softcom.cldt.testing.ui.CoverageResultView;
 import su.softcom.cldt.testing.ui.CoverageTab;
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
-public class LaunchConfigurationDelegate extends org.eclipse.debug.core.model.LaunchConfigurationDelegate
-		implements CoverageResultView.CoverageDataProvider {
+public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, CoverageResultView.CoverageDataProvider {
 
 	private Map<String, Map<String, Object[]>> coverageData;
 	private List<String> analysisScope = CoverageTab.analysisScope;
@@ -34,17 +40,20 @@ public class LaunchConfigurationDelegate extends org.eclipse.debug.core.model.La
 			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to get project name"));
 		}
 
-		String testProjectPath = Platform.getLocation().toString() + "/" + projectName;
-		String buildDirPath = testProjectPath + "/build";
+		ICMakeProject cmakeProject = CMakeCorePlugin.getDefault().getProject(projectName);
+		IProject project = cmakeProject.getProject();
+		String projectPath = project.getLocation().toOSString();
+		IFolder buildFolder = cmakeProject.getBuildFolder();
+		String buildFolderPath = buildFolder.getLocation().toOSString();
 
 		CommandExecutor commandExecutor = new CommandExecutor();
 
 		try {
-			setupProject(commandExecutor, testProjectPath, buildDirPath);
+			setupProject(commandExecutor, cmakeProject, projectPath, buildFolder);
 
-			runTests(commandExecutor, buildDirPath);
+			runTests(commandExecutor, buildFolderPath);
 
-			generateReport(commandExecutor, buildDirPath);
+			generateReport(commandExecutor, buildFolderPath);
 
 			updateUI();
 
@@ -53,10 +62,17 @@ public class LaunchConfigurationDelegate extends org.eclipse.debug.core.model.La
 		}
 	}
 
-	private void setupProject(CommandExecutor commandExecutor, String testProjectPath, String buildDirPath)
-			throws IOException, InterruptedException {
-		commandExecutor.executeCommand("mkdir -p \"" + buildDirPath + "\"");
-		commandExecutor.executeCommand("cmake \"" + testProjectPath + "\" -B \"" + buildDirPath + "\"");
+	private void setupProject(CommandExecutor commandExecutor, ICMakeProject cmakeProject, String testProjectPath,
+			IFolder buildFolder) throws IOException, InterruptedException, CoreException {
+		if (!buildFolder.exists()) {
+			buildFolder.create(true, true, null);
+		}
+
+		String cmakePath = cmakeProject.getCmakeInstance().getPath().toOSString();
+		String buildDirPath = buildFolder.getLocation().toOSString();
+
+		List<String> cmakeCommand = Arrays.asList(cmakePath, testProjectPath, "-B", buildDirPath);
+		commandExecutor.executeCommand(cmakeCommand);
 	}
 
 	private String findExecutable(String buildDirPath) {
@@ -80,7 +96,8 @@ public class LaunchConfigurationDelegate extends org.eclipse.debug.core.model.La
 			throw new IOException("Executable file not found in " + buildDirPath);
 		}
 
-		commandExecutor.executeCommand("LLVM_PROFILE_FILE=\"" + rawProfilePath + "\" \"" + testExecutablePath + "\"");
+		List<String> testCommand = Arrays.asList(testExecutablePath);
+		commandExecutor.executeCommandWithEnv(testCommand, "LLVM_PROFILE_FILE", rawProfilePath);
 	}
 
 	private void generateReport(CommandExecutor commandExecutor, String buildDirPath)
@@ -94,10 +111,13 @@ public class LaunchConfigurationDelegate extends org.eclipse.debug.core.model.La
 			throw new IOException("Executable file not found in " + buildDirPath);
 		}
 
-		commandExecutor.executeCommand(
-				"llvm-profdata merge -sparse \"" + rawProfilePath + "\" -o \"" + profileDataPath + "\"");
-		commandExecutor.executeCommand("llvm-cov export \"" + testExecutablePath + "\" -instr-profile=\""
-				+ profileDataPath + "\" --format=lcov > \"" + reportPath + "\"");
+		List<String> profdataCommand = Arrays.asList("llvm-profdata", "merge", "-sparse", rawProfilePath, "-o",
+				profileDataPath);
+		commandExecutor.executeCommand(profdataCommand);
+
+		List<String> covCommand = Arrays.asList("llvm-cov", "export", testExecutablePath,
+				"-instr-profile=" + profileDataPath, "--format=lcov");
+		commandExecutor.executeCommandWithRedirect(covCommand, reportPath);
 
 		List<String> reportLines = Files.readAllLines(Paths.get(reportPath));
 		coverageData = ReportParser.parseLcovReport(reportLines);
@@ -121,5 +141,31 @@ public class LaunchConfigurationDelegate extends org.eclipse.debug.core.model.La
 	@Override
 	public Map<String, Map<String, Object[]>> getCoverageData() {
 		return coverageData;
+	}
+
+	@Override
+	public boolean buildForLaunch(ILaunchConfiguration configuration, String mode, IProgressMonitor monitor)
+			throws CoreException {
+		String projectName = CoverageTab.iproject;
+		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
+		project.build(IncrementalProjectBuilder.INCREMENTAL_BUILD, monitor);
+		return false;
+	}
+
+	@Override
+	public boolean preLaunchCheck(ILaunchConfiguration configuration, String mode, IProgressMonitor monitor)
+			throws CoreException {
+		return true;
+	}
+
+	@Override
+	public boolean finalLaunchCheck(ILaunchConfiguration configuration, String mode, IProgressMonitor monitor)
+			throws CoreException {
+		return true;
+	}
+
+	@Override
+	public ILaunch getLaunch(ILaunchConfiguration configuration, String mode) throws CoreException {
+		return null;
 	}
 }
