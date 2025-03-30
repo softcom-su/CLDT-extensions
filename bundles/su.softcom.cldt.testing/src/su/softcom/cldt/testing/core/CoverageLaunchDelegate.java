@@ -122,7 +122,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		List<String> reportLines = Files.readAllLines(Paths.get(reportPath));
 		coverageData = ReportParser.parseLcovReport(reportLines);
 		coverageData.entrySet()
-				.removeIf(entry -> analysisScope.contains(CoverageUtils.removeFirstSegment(entry.getKey(), 4)));
+				.removeIf(entry -> !analysisScope.contains(CoverageUtils.removeFirstSegment(entry.getKey(), 4)));
 	}
 
 	private void updateUI() {
