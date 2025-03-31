@@ -7,14 +7,17 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
@@ -28,13 +31,14 @@ import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, CoverageResultView.CoverageDataProvider {
 
+	private static final ILog LOGGER = Platform.getLog(CoverageLaunchDelegate.class);
+
 	private Map<String, Map<String, Object[]>> coverageData;
 	private List<String> analysisScope = CoverageTab.analysisScope;
 
 	@Override
 	public void launch(ILaunchConfiguration configuration, String mode, ILaunch launch, IProgressMonitor monitor)
 			throws CoreException {
-
 		String projectName = CoverageTab.iproject;
 		if (projectName == null) {
 			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to get project name"));
@@ -50,15 +54,13 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 
 		try {
 			setupProject(commandExecutor, cmakeProject, projectPath, buildFolder);
-
 			runTests(commandExecutor, buildFolderPath);
-
 			generateReport(commandExecutor, buildFolderPath);
-
 			updateUI();
-
+			refreshBuildFolder(buildFolder);
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.log(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Launch failed", e));
+			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Launch failed", e));
 		}
 	}
 
@@ -66,13 +68,25 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			IFolder buildFolder) throws IOException, InterruptedException, CoreException {
 		if (!buildFolder.exists()) {
 			buildFolder.create(true, true, null);
+			LOGGER.log(new Status(IStatus.INFO, "su.softcom.cldt.testing",
+					"Created build folder: " + buildFolder.getLocation().toOSString()));
 		}
 
 		String cmakePath = cmakeProject.getCmakeInstance().getPath().toOSString();
 		String buildDirPath = buildFolder.getLocation().toOSString();
 
-		List<String> cmakeCommand = Arrays.asList(cmakePath, testProjectPath, "-B", buildDirPath);
+		List<String> cmakeCommand = Arrays.asList(cmakePath, testProjectPath, "-B", buildDirPath,
+				"-DCMAKE_CXX_FLAGS=-fprofile-instr-generate -fcoverage-mapping",
+				"-DCMAKE_C_FLAGS=-fprofile-instr-generate -fcoverage-mapping");
 		commandExecutor.executeCommand(cmakeCommand);
+
+		List<String> buildCommand = Arrays.asList("cmake", "--build", buildDirPath);
+		commandExecutor.executeCommand(buildCommand);
+
+		String executablePath = findExecutable(buildDirPath);
+		if (executablePath == null) {
+			throw new IOException("No executable found after build in " + buildDirPath);
+		}
 	}
 
 	private String findExecutable(String buildDirPath) {
@@ -83,7 +97,6 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		if (executables != null && executables.length > 0) {
 			return executables[0].getAbsolutePath();
 		}
-
 		return null;
 	}
 
@@ -96,8 +109,19 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			throw new IOException("Executable file not found in " + buildDirPath);
 		}
 
+		File oldProfraw = new File(rawProfilePath);
+		if (oldProfraw.exists()) {
+			oldProfraw.delete();
+		}
+
 		List<String> testCommand = Arrays.asList(testExecutablePath);
 		commandExecutor.executeCommandWithEnv(testCommand, "LLVM_PROFILE_FILE", rawProfilePath);
+
+		File profrawFile = new File(rawProfilePath);
+		if (!profrawFile.exists()) {
+			throw new IOException("Profile raw data file was not generated after test execution: " + rawProfilePath
+					+ ". Check if the executable is compiled with -fprofile-instr-generate and runs correctly.");
+		}
 	}
 
 	private void generateReport(CommandExecutor commandExecutor, String buildDirPath)
@@ -105,6 +129,11 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		String rawProfilePath = buildDirPath + "/coverage.profraw";
 		String profileDataPath = buildDirPath + "/coverage.profdata";
 		String reportPath = buildDirPath + "/coverage_report.lcov";
+
+		File profrawFile = new File(rawProfilePath);
+		if (!profrawFile.exists()) {
+			throw new IOException("Profile raw data file not found: " + rawProfilePath + ". Check test execution.");
+		}
 
 		String testExecutablePath = findExecutable(buildDirPath);
 		if (testExecutablePath == null) {
@@ -114,6 +143,11 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		List<String> profdataCommand = Arrays.asList("llvm-profdata", "merge", "-sparse", rawProfilePath, "-o",
 				profileDataPath);
 		commandExecutor.executeCommand(profdataCommand);
+
+		File profdataFile = new File(profileDataPath);
+		if (!profdataFile.exists()) {
+			throw new IOException("Profile data file was not generated: " + profileDataPath);
+		}
 
 		List<String> covCommand = Arrays.asList("llvm-cov", "export", testExecutablePath,
 				"-instr-profile=" + profileDataPath, "--format=lcov");
@@ -133,9 +167,13 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 				view.setDataProvider(this);
 				view.updateCoverageResults(coverageData);
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOGGER.log(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to update UI", e));
 			}
 		});
+	}
+
+	private void refreshBuildFolder(IFolder buildFolder) throws CoreException {
+		buildFolder.refreshLocal(IResource.DEPTH_INFINITE, null);
 	}
 
 	@Override
