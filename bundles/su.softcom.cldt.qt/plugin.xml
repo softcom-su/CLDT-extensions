@@ -3,26 +3,12 @@
 <plugin>
    <extension
          point="org.eclipse.ui.importWizards">
-   	<wizard
-         	id="su.softcom.cldt.qt.ui.wizard.import"
-         	name="%wizard.converterimport"
-         	class="su.softcom.cldt.qt.ui.wizards.QMakeWithBuildMigratorWizard"
-         	icon="icons/view16/qt.png"
-         	category="su.softcom.cldt.qt.category">
-   	</wizard>
-   	<category
-            id="su.softcom.cldt.qt.category"
-            name="%wizard.category">
-      </category>
-   </extension>
-   <extension
-         point="org.eclipse.ui.importWizards">
       <wizard
             category="su.softcom.cldt.ui.cppProjects"
             class="su.softcom.cldt.qt.ui.wizards.QtImportWizard"
             icon="icons/view16/qt.png"
             id="su.softcom.cldt.qt.ui.wizard.import"
-            name="Проект QT">
+            name="%QtProject">
       </wizard>
    </extension>
    <extension
@@ -118,5 +104,17 @@
          </enabledWhen>
       </page>
    </extension>
+   <extension point="org.eclipse.ui.views">
+    <view
+        id="su.softcom.cldt.qt.ui.internal.views.QtImportConsoleView"
+        name="QtImport Console"
+        class="su.softcom.cldt.qt.ui.internal.views.QtImportConsoleView"
+        category="su.softcom.cldt.qt.ui.views">
+    </view>
+    <category
+        id="su.softcom.cldt.qt.ui.views"
+        name="Qt Tools">
+    </category>
+</extension>
 
 </plugin>
