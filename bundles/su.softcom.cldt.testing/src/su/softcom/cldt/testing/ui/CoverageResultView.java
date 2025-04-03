@@ -3,7 +3,10 @@ package su.softcom.cldt.testing.ui;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.CellLabelProvider;
 import org.eclipse.jface.viewers.TableViewer;
@@ -14,12 +17,12 @@ import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.ui.part.ViewPart;
-
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageResultView extends ViewPart {
 
 	public static final String ID = "su.softcom.cldt.testing.ui.CoverageResultView";
+	private static final ILog LOGGER = Platform.getLog(CoverageResultView.class);
 
 	private static final String LINE_COUNTERS = Messages.CoverageResultView_1;
 	private static final String BRANCH_COUNTERS = Messages.CoverageResultView_2;
@@ -28,7 +31,7 @@ public class CoverageResultView extends ViewPart {
 	private TableViewer tableViewer;
 	private String selectedCounter = LINE_COUNTERS;
 	private CoverageDataProvider dataProvider;
-	private List<String> analysisScope = CoverageTab.analysisScope;
+	private List<String> analysisScope;
 
 	@Override
 	public void createPartControl(Composite parent) {
@@ -143,21 +146,35 @@ public class CoverageResultView extends ViewPart {
 	private void loadCoverageResults() {
 		if (dataProvider != null) {
 			Map<String, Map<String, Object[]>> coverageResults = dataProvider.getCoverageData();
-			coverageResults.entrySet()
-					.removeIf(entry -> analysisScope.contains(CoverageUtils.removeFirstSegment(entry.getKey(), 3)));
-			updateCoverageResults(coverageResults);
+			updateCoverageResults(coverageResults, analysisScope);
 		}
 	}
 
-	public void updateCoverageResults(Map<String, Map<String, Object[]>> coverageResults) {
+	public void updateCoverageResults(Map<String, Map<String, Object[]>> coverageResults, List<String> analysisScope) {
 		tableViewer.getTable().removeAll();
-		List<Object[]> data = coverageResults.values().stream().map(entry -> entry.get(selectedCounter))
-				.filter(counterData -> counterData != null).collect(Collectors.toList());
+		if (coverageResults == null || coverageResults.isEmpty()) {
+			LOGGER.log(new Status(IStatus.WARNING, "su.softcom.cldt.testing",
+					"Coverage results are null or empty in updateCoverageResults"));
+			return;
+		}
+
+		boolean useFiltering = analysisScope != null && !analysisScope.isEmpty();
+		List<Object[]> data = coverageResults.entrySet().stream().filter(
+				entry -> !useFiltering || analysisScope.contains(CoverageUtils.removeFirstSegment(entry.getKey(), 4)))
+				.map(entry -> {
+					Map<String, Object[]> counters = entry.getValue();
+					Object[] counterData = counters.get(selectedCounter);
+					return counterData != null ? counterData : new Object[0];
+				}).filter(counterData -> counterData.length > 0).collect(Collectors.toList());
 		tableViewer.setInput(data.toArray(new Object[0][]));
 	}
 
 	public void setDataProvider(CoverageDataProvider dataProvider) {
 		this.dataProvider = dataProvider;
+	}
+
+	public void setAnalysisScope(List<String> analysisScope) {
+		this.analysisScope = analysisScope;
 	}
 
 	@Override

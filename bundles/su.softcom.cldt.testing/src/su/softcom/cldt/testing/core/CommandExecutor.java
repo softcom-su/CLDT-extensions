@@ -2,50 +2,41 @@ package su.softcom.cldt.testing.core;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.File;
 import java.io.InputStreamReader;
+import java.io.File;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 public class CommandExecutor {
-
-	public void executeCommand(List<String> command) throws IOException, InterruptedException {
-		ProcessBuilder pb = new ProcessBuilder(command);
-		Process process = pb.start();
-		int exitCode = process.waitFor();
-		if (exitCode != 0) {
-			try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-				String error = errorReader.lines().collect(Collectors.joining("\n"));
-				throw new IOException("Command failed with error: " + error);
-			}
-		}
-	}
-
-	public void executeCommandWithEnv(List<String> command, String envKey, String envValue)
+	public int executeCommand(List<String> command, Map<String, String> env, String outputFile, StringBuilder output)
 			throws IOException, InterruptedException {
 		ProcessBuilder pb = new ProcessBuilder(command);
-		pb.environment().put(envKey, envValue);
+		if (env != null) {
+			pb.environment().putAll(env);
+		}
+		if (outputFile != null) {
+			pb.redirectOutput(new File(outputFile));
+		}
 		Process process = pb.start();
-		int exitCode = process.waitFor();
-		if (exitCode != 0) {
+		if (output != null) {
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					output.append(line).append("\n");
+				}
+			}
 			try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-				String error = errorReader.lines().collect(Collectors.joining("\n"));
-				throw new IOException("Command failed with error: " + error);
+				String line;
+				while ((line = errorReader.readLine()) != null) {
+					output.append("ERROR: ").append(line).append("\n");
+				}
 			}
 		}
+		return process.waitFor();
 	}
 
-	public void executeCommandWithRedirect(List<String> command, String outputFile)
+	public void executeCommand(List<String> command, Map<String, String> env, String outputFile)
 			throws IOException, InterruptedException {
-		ProcessBuilder pb = new ProcessBuilder(command);
-		pb.redirectOutput(new File(outputFile));
-		Process process = pb.start();
-		int exitCode = process.waitFor();
-		if (exitCode != 0) {
-			try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-				String error = errorReader.lines().collect(Collectors.joining("\n"));
-				throw new IOException("Command failed with error: " + error);
-			}
-		}
+		executeCommand(command, env, outputFile, null);
 	}
 }
