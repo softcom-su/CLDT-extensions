@@ -27,8 +27,15 @@ public class Messages extends NLS {
 	public static String CoverageResultView_14;
 	public static String CoverageResultView_15;
 	public static String CoverageResultView_16;
-	public static String CoverageTab_0;
-	public static String CoverageTab_1;
+	public static String CoverageTab_6;
+	public static String CoverageTab_7;
+	public static String CoverageTab_8;
+	public static String CoverageTab_9;
+	public static String CoverageTab_10;
+	public static String CoverageTab_11;
+	public static String CoverageTab_25;
+	public static String CoverageTab_27;
+	public static String CoverageTab_28;
 	static {
 		// initialize resource bundle
 		NLS.initializeMessages(BUNDLE_NAME, Messages.class);
