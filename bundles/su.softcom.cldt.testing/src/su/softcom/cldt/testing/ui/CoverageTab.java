@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -51,14 +49,17 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 
 	private static final Logger LOGGER = Logger.getLogger(CoverageTab.class.getName());
 
+	private static final String PROJECT_NAME_KEY = "projectName";
+	private static final String TARGET_NAME_KEY = "targetName";
+	private static final String ANALYSIS_SCOPE_KEY = "analysisScope";
+
 	private Text projectText;
 	private ComboViewer targetComboViewer;
 	private Combo targetCombo;
 	private CheckboxTableViewer tableViewer;
-	private List<Target> targets;
 
 	private static final Set<String> EXCLUDED_FILES_AND_FOLDERS = new HashSet<>(
-			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md"));
 
 	@Override
 	public void createControl(Composite parent) {
@@ -119,8 +120,8 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		targetComboViewer.setLabelProvider(new LabelProvider() {
 			@Override
 			public String getText(Object element) {
-				if (element instanceof Target) {
-					return ((Target) element).getName();
+				if (element instanceof Target target) {
+					return target.getName();
 				}
 				return super.getText(element);
 			}
@@ -149,11 +150,10 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		if (!projectName.isBlank()) {
 			ICMakeProject cmakeProject = CMakeCorePlugin.getDefault().getProject(projectName);
 			if (cmakeProject != null) {
-				targets = cmakeProject.getTargets();
+				List<Target> targets = cmakeProject.getTargets();
 				targetComboViewer.setInput(targets);
 				populateFileList(cmakeProject.getProject());
 			} else {
-				targets = null;
 				targetComboViewer.setInput(null);
 				tableViewer.setInput(null);
 			}
@@ -164,26 +164,33 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		try {
 			List<String> files = new ArrayList<>();
 			collectFiles(project, files);
-			List<String> displayFiles = files.stream().map(file -> CoverageUtils.removeFirstSegment(file, 1))
-					.collect(Collectors.toList());
+			List<String> displayFiles = files.stream().map(file -> CoverageUtils.removeFirstSegment(file, 1)).toList();
 			tableViewer.setInput(displayFiles);
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error populating file list", e); //$NON-NLS-1$
+			LOGGER.log(Level.SEVERE, "Error populating file list", e);
 		}
 	}
 
 	private void collectFiles(IResource resource, List<String> files) throws CoreException {
+		if (resource.getName().startsWith(".")) {
+			return;
+		}
+
 		if (EXCLUDED_FILES_AND_FOLDERS.contains(resource.getName())) {
 			return;
 		}
 		if (resource instanceof IFile) {
-			files.add(resource.getFullPath().toString());
-		} else if (resource instanceof IProject) {
-			for (IResource member : ((IProject) resource).members()) {
+			String extension = resource.getFileExtension();
+			Set<String> allowedExtensions = Set.of("cpp", "h", "c", "hpp");
+			if (extension != null && allowedExtensions.contains(extension.toLowerCase())) {
+				files.add(resource.getFullPath().toString());
+			}
+		} else if (resource instanceof IProject iproject) {
+			for (IResource member : iproject.members()) {
 				collectFiles(member, files);
 			}
-		} else if (resource instanceof IFolder) {
-			for (IResource member : ((IFolder) resource).members()) {
+		} else if (resource instanceof IFolder ifolder) {
+			for (IResource member : ifolder.members()) {
 				collectFiles(member, files);
 			}
 		}
@@ -191,39 +198,39 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 
 	@Override
 	public void setDefaults(ILaunchConfigurationWorkingCopy configuration) {
-		configuration.setAttribute("projectName", getCurrentProject()); //$NON-NLS-1$
-		configuration.setAttribute("targetName", ""); //$NON-NLS-1$ //$NON-NLS-2$
-		configuration.setAttribute("analysisScope", new ArrayList<String>()); //$NON-NLS-1$
+		configuration.setAttribute(PROJECT_NAME_KEY, getCurrentProject());
+		configuration.setAttribute(TARGET_NAME_KEY, "");
+		configuration.setAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 	}
 
 	@Override
 	public void initializeFrom(ILaunchConfiguration configuration) {
 		try {
-			String projectName = configuration.getAttribute("projectName", getCurrentProject()); //$NON-NLS-1$
+			String projectName = configuration.getAttribute(PROJECT_NAME_KEY, getCurrentProject());
 			projectText.setText(projectName);
 			updateTargets();
 
-			String targetName = configuration.getAttribute("targetName", ""); //$NON-NLS-1$ //$NON-NLS-2$
+			String targetName = configuration.getAttribute(TARGET_NAME_KEY, "");
 			targetCombo.setText(targetName);
 
-			List<String> savedScope = configuration.getAttribute("analysisScope", new ArrayList<>()); //$NON-NLS-1$
+			List<String> savedScope = configuration.getAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 			tableViewer.setCheckedElements(savedScope.toArray());
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e); //$NON-NLS-1$
+			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e);
 		}
 	}
 
 	@Override
 	public void performApply(ILaunchConfigurationWorkingCopy configuration) {
-		configuration.setAttribute("projectName", projectText.getText()); //$NON-NLS-1$
-		configuration.setAttribute("targetName", targetCombo.getText()); //$NON-NLS-1$
+		configuration.setAttribute(PROJECT_NAME_KEY, projectText.getText());
+		configuration.setAttribute(TARGET_NAME_KEY, targetCombo.getText());
 
 		List<String> analysisScope = new ArrayList<>();
 		Object[] checkedElements = tableViewer.getCheckedElements();
 		for (Object element : checkedElements) {
 			analysisScope.add(element.toString());
 		}
-		configuration.setAttribute("analysisScope", analysisScope); //$NON-NLS-1$
+		configuration.setAttribute(ANALYSIS_SCOPE_KEY, analysisScope);
 	}
 
 	@Override
@@ -235,17 +242,17 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
 		if (window != null) {
 			ISelection selection = window.getSelectionService().getSelection();
-			if (selection instanceof IStructuredSelection) {
-				Object element = ((IStructuredSelection) selection).getFirstElement();
-				if (element instanceof IAdaptable) {
-					IProject project = ((IAdaptable) element).getAdapter(IProject.class);
+			if (selection instanceof IStructuredSelection istructuredselection) {
+				Object element = istructuredselection.getFirstElement();
+				if (element instanceof IAdaptable iadaptable) {
+					IProject project = iadaptable.getAdapter(IProject.class);
 					if (project != null) {
 						return project.getName();
 					}
 				}
 			}
 		}
-		return ""; //$NON-NLS-1$
+		return "";
 	}
 
 	@Override

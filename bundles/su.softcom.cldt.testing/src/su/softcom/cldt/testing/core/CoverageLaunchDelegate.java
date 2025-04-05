@@ -32,9 +32,10 @@ import su.softcom.cldt.testing.ui.CoverageResultView;
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, CoverageResultView.CoverageDataProvider {
-
 	private static final ILog LOGGER = Platform.getLog(CoverageLaunchDelegate.class);
+	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String CMAKE_CONFIGURE_BUILDER_ID = "su.softcom.cldt.core.builder.configure";
+
 	private Map<String, Map<String, Object[]>> coverageData;
 
 	@Override
@@ -42,12 +43,12 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			throws CoreException {
 		String projectName = configuration.getAttribute("projectName", (String) null);
 		if (projectName == null) {
-			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to get project name"));
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to get project name"));
 		}
 
 		String targetName = configuration.getAttribute("targetName", (String) null);
 		if (targetName == null) {
-			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to get target name"));
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to get target name"));
 		}
 
 		List<String> analysisScope = configuration.getAttribute("analysisScope", List.of());
@@ -59,8 +60,8 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		Target target = cmakeProject.getTarget(targetName);
 		String executablePath = getExecutablePath(target, buildFolderPath);
 		if (executablePath == null) {
-			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing",
-					"Executable not found for target: " + targetName));
+			throw new CoreException(
+					new Status(IStatus.ERROR, PLUGIN_ID, "Executable not found for target: " + targetName));
 		}
 
 		CommandExecutor commandExecutor = new CommandExecutor();
@@ -70,9 +71,13 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			generateReport(commandExecutor, buildFolderPath, executablePath, analysisScope);
 			updateUI(coverageData, analysisScope);
 			refreshBuildFolder(buildFolder);
-		} catch (Exception e) {
-			LOGGER.log(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Launch failed", e));
-			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Launch failed", e));
+		} catch (IOException e) {
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Launch failed", e));
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID, "Launch failed", e));
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Launch interrupted", e));
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID, "Launch interrupted", e));
 		}
 	}
 
@@ -85,7 +90,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 				view.setAnalysisScope(analysisScope);
 				view.updateCoverageResults(coverageData, analysisScope);
 			} catch (Exception e) {
-				LOGGER.log(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to update UI", e));
+				LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to update UI", e));
 			}
 		});
 	}
@@ -97,11 +102,8 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 				return file.getAbsolutePath();
 			}
 		}
-		return findExecutable(buildFolderPath);
-	}
 
-	private String findExecutable(String buildDirPath) {
-		File buildDir = new File(buildDirPath);
+		File buildDir = new File(buildFolderPath);
 		File[] executables = buildDir
 				.listFiles(file -> file.isFile() && file.canExecute() && !file.getName().endsWith(".profraw"));
 		return (executables != null && executables.length > 0) ? executables[0].getAbsolutePath() : null;
@@ -113,7 +115,11 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 
 		File oldProfraw = new File(rawProfilePath);
 		if (oldProfraw.exists()) {
-			oldProfraw.delete();
+			try {
+				Files.delete(oldProfraw.toPath());
+			} catch (IOException e) {
+				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Failed to delete old profile data", e));
+			}
 		}
 
 		List<String> testCommand = Arrays.asList(executablePath);
@@ -160,7 +166,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			throws CoreException {
 		String projectName = configuration.getAttribute("projectName", (String) null);
 		if (projectName == null) {
-			throw new CoreException(new Status(IStatus.ERROR, "su.softcom.cldt.testing", "Failed to get project name"));
+			throw new CoreException(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to get project name"));
 		}
 		IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
 		ICMakeProject cmakeProject = CMakeCorePlugin.getDefault().getProject(projectName);
@@ -171,10 +177,9 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		cmakeProject.setBuildArguments(buildArgs);
 
 		project.build(IncrementalProjectBuilder.FULL_BUILD, CMAKE_CONFIGURE_BUILDER_ID, null, monitor);
-
 		project.build(IncrementalProjectBuilder.FULL_BUILD, monitor);
 
-		return true;
+		return false;
 	}
 
 	@Override

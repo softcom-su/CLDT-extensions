@@ -1,6 +1,10 @@
 package su.softcom.cldt.testing.utils;
 
 public class CoverageUtils {
+
+	private CoverageUtils() {
+	}
+
 	public static String removeFirstSegment(String path, int number) {
 		if (path == null || path.isEmpty()) {
 			throw new IllegalArgumentException("Path cannot be null or empty");
