@@ -14,15 +14,14 @@ import org.eclipse.ui.IWorkbenchPreferencePage;
 
 public class CoveragePreferencePage extends FieldEditorPreferencePage implements IWorkbenchPreferencePage {
 
-	private Text includesText;
-	private Text excludesText;
-
 	public CoveragePreferencePage() {
 		super(GRID);
 	}
 
 	@Override
 	public void init(IWorkbench workbench) {
+		// This method is intentionally left empty as no initialization is required
+		// for this preference page beyond what the superclass provides
 	}
 
 	@Override
@@ -67,19 +66,21 @@ public class CoveragePreferencePage extends FieldEditorPreferencePage implements
 	}
 
 	private void createCoverageRuntimeFields(Group coverageGroup) {
-		createLabelAndText(coverageGroup, Messages.CoveragePreferencePage_5, includesText);
-		createLabelAndText(coverageGroup, Messages.CoveragePreferencePage_6, excludesText);
+		createLabelAndText(coverageGroup, Messages.CoveragePreferencePage_5);
+		createLabelAndText(coverageGroup, Messages.CoveragePreferencePage_6);
 	}
 
-	private void createLabelAndText(Group parent, String labelText, Text textField) {
+	private Text createLabelAndText(Group parent, String labelText) {
 		Label label = new Label(parent, SWT.NONE);
 		label.setText(labelText);
-		textField = new Text(parent, SWT.BORDER);
+		Text textField = new Text(parent, SWT.BORDER);
 		textField.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, false));
+		return textField;
 	}
 
 	@Override
 	protected void createFieldEditors() {
-		// TODO Auto-generated method stub
+		// This method is intentionally left empty because we're using custom controls
+		// instead of standard FieldEditors. The UI is created in createControl method.
 	}
 }

@@ -2,7 +2,6 @@ package su.softcom.cldt.testing.ui;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
@@ -17,6 +16,7 @@ import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.ui.part.ViewPart;
+
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageResultView extends ViewPart {
@@ -75,64 +75,65 @@ public class CoverageResultView extends ViewPart {
 	}
 
 	private void createCounterColumns() {
-		String[] columnNames = getColumnNamesForCounter(selectedCounter);
+		String[] columnNames = SelectCountersAction.getColumnNamesForCounter(selectedCounter);
 		int[] columnWidths = { 250, 150, 150, 150 };
 
 		for (int i = 0; i < columnNames.length; i++) {
-			createColumn(columnNames[i], columnWidths[i], i + 1);
+			SelectCountersAction.createColumn(tableViewer, columnNames[i], columnWidths[i], i + 1);
 		}
-	}
-
-	private String[] getColumnNamesForCounter(String counterType) {
-		if (BRANCH_COUNTERS.equals(counterType)) {
-			return new String[] { Messages.CoverageResultView_5, Messages.CoverageResultView_6,
-					Messages.CoverageResultView_7, Messages.CoverageResultView_8 };
-		} else if (LINE_COUNTERS.equals(counterType)) {
-			return new String[] { Messages.CoverageResultView_9, Messages.CoverageResultView_10,
-					Messages.CoverageResultView_11, Messages.CoverageResultView_12 };
-		} else if (FUNCTION_COUNTERS.equals(counterType)) {
-			return new String[] { Messages.CoverageResultView_13, Messages.CoverageResultView_14,
-					Messages.CoverageResultView_15, Messages.CoverageResultView_16 };
-		} else {
-			return new String[] {};
-		}
-	}
-
-	private void createColumn(String title, int width, int index) {
-		TableViewerColumn column = new TableViewerColumn(tableViewer, SWT.NONE);
-		column.getColumn().setText(title);
-		column.getColumn().setWidth(width);
-		column.setLabelProvider(new CellLabelProvider() {
-			@Override
-			public void update(ViewerCell cell) {
-				Object[] data = (Object[]) cell.getElement();
-				cell.setText(data.length > index ? data[index].toString() : "");
-			}
-		});
 	}
 
 	private void configureMenu() {
-		getViewSite().getActionBars().getMenuManager().add(new SelectCountersAction(LINE_COUNTERS));
-		getViewSite().getActionBars().getMenuManager().add(new SelectCountersAction(BRANCH_COUNTERS));
-		getViewSite().getActionBars().getMenuManager().add(new SelectCountersAction(FUNCTION_COUNTERS));
+		getViewSite().getActionBars().getMenuManager().add(new SelectCountersAction(this, LINE_COUNTERS));
+		getViewSite().getActionBars().getMenuManager().add(new SelectCountersAction(this, BRANCH_COUNTERS));
+		getViewSite().getActionBars().getMenuManager().add(new SelectCountersAction(this, FUNCTION_COUNTERS));
 	}
 
 	private class SelectCountersAction extends org.eclipse.jface.action.Action {
 		private final String counter;
 
-		public SelectCountersAction(String counter) {
+		public SelectCountersAction(CoverageResultView view, String counter) {
 			super(counter, AS_RADIO_BUTTON);
 			this.counter = counter;
-			setChecked(selectedCounter.equals(counter));
+			setChecked(view.selectedCounter.equals(counter));
 		}
 
 		@Override
 		public void run() {
-			if (!selectedCounter.equals(counter)) {
-				selectedCounter = counter;
-				refreshColumns();
-				loadCoverageResults();
+			CoverageResultView view = CoverageResultView.this;
+			if (!view.selectedCounter.equals(counter)) {
+				view.selectedCounter = counter;
+				view.refreshColumns();
+				view.loadCoverageResults();
 			}
+		}
+
+		public static String[] getColumnNamesForCounter(String counterType) {
+			if (BRANCH_COUNTERS.equals(counterType)) {
+				return new String[] { Messages.CoverageResultView_5, Messages.CoverageResultView_6,
+						Messages.CoverageResultView_7, Messages.CoverageResultView_8 };
+			} else if (LINE_COUNTERS.equals(counterType)) {
+				return new String[] { Messages.CoverageResultView_9, Messages.CoverageResultView_10,
+						Messages.CoverageResultView_11, Messages.CoverageResultView_12 };
+			} else if (FUNCTION_COUNTERS.equals(counterType)) {
+				return new String[] { Messages.CoverageResultView_13, Messages.CoverageResultView_14,
+						Messages.CoverageResultView_15, Messages.CoverageResultView_16 };
+			} else {
+				return new String[] {};
+			}
+		}
+
+		public static void createColumn(TableViewer tableViewer, String title, int width, int index) {
+			TableViewerColumn column = new TableViewerColumn(tableViewer, SWT.NONE);
+			column.getColumn().setText(title);
+			column.getColumn().setWidth(width);
+			column.setLabelProvider(new CellLabelProvider() {
+				@Override
+				public void update(ViewerCell cell) {
+					Object[] data = (Object[]) cell.getElement();
+					cell.setText(data.length > index ? data[index].toString() : "");
+				}
+			});
 		}
 	}
 
@@ -165,7 +166,7 @@ public class CoverageResultView extends ViewPart {
 					Map<String, Object[]> counters = entry.getValue();
 					Object[] counterData = counters.get(selectedCounter);
 					return counterData != null ? counterData : new Object[0];
-				}).filter(counterData -> counterData.length > 0).collect(Collectors.toList());
+				}).filter(counterData -> counterData.length > 0).toList();
 		tableViewer.setInput(data.toArray(new Object[0][]));
 	}
 
