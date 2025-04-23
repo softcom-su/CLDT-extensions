@@ -167,8 +167,24 @@ public class QtImportWizardPage extends WizardPage implements IWizardPage {
                 qmakeRootDirectoryText.setText(filepath);
                 String projectName = new File(filepath).getName();
                 qmakeProjectNameText.setText(createUniqueName(projectName));
-                File projectFile = new File(filepath, "Project.pro");
-                qmakeProFilePathText.setText(projectFile.exists() ? projectFile.getAbsolutePath() : "");
+                
+                File dir = new File(filepath);
+                File[] proFiles = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".pro"));
+                
+                if (proFiles != null && proFiles.length == 1) {
+                    qmakeProFilePathText.setText(proFiles[0].getAbsolutePath());
+                } else {
+                    FileDialog fileDialog = new FileDialog(getShell(), SWT.OPEN);
+                    fileDialog.setFilterPath(filepath);
+                    fileDialog.setFilterExtensions(new String[] { "pro", "*.pro", "Pro", "*.Pro", "PRO", "*.PRO" });
+                    fileDialog.setText("Select Qt .pro File");
+                    String selectedFile = fileDialog.open();
+                    if (selectedFile != null) {
+                        qmakeProFilePathText.setText(selectedFile);
+                    } else {
+                        qmakeProFilePathText.setText("");
+                    }
+                }
             }
         });
 
