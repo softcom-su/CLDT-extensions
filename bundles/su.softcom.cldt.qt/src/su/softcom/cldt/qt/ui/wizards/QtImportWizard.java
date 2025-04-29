@@ -15,6 +15,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.net.URL;
 
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.IResource;
@@ -495,11 +496,48 @@ public class QtImportWizard extends Wizard implements IImportWizard {
         Files.walk(directory).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
     }
 
+    /**
+     * Deletes the contents of the specified directory, excluding specified paths.
+     * 
+     * @param directory The directory to clean.
+     * @param exclusions Paths to exclude from deletion.
+     * @throws IOException If an error occurs during deletion.
+     */
+    private void deleteDirectoryWithExclusions(File directory, Path... exclusions) throws IOException {
+        if (!directory.exists()) {
+            return;
+        }
+        try {
+            Files.walk(directory.toPath())
+                 .filter(path -> Arrays.stream(exclusions).noneMatch(exclusion -> path.startsWith(exclusion)))
+                 .sorted(Comparator.reverseOrder())
+                 .forEach(path -> {
+                     try {
+                         if (!path.toFile().equals(directory)) {
+                             Files.delete(path);
+                             consoleView.logMessage("Deleted: " + path);
+                         }
+                     } catch (IOException e) {
+                         consoleView.logError("Failed to delete " + path + ": " + e.getMessage());
+                     }
+                 });
+            Path prebuildPath = directory.toPath().resolve("prebuild");
+            consoleView.logMessage("Cleaned up temporary directory: " + directory.getAbsolutePath() +
+                                  (Files.exists(prebuildPath) ? " (preserved prebuild folder)" : ""));
+        } catch (IOException e) {
+            consoleView.logError("Failed to clean up temporary directory " + directory.getAbsolutePath() + ": " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Cleans up temporary files in the build result directory, preserving the prebuild folder if it exists.
+     */
     private void cleanTemporaryFiles(File buildResultDir) {
         if (buildResultDir.exists()) {
             try {
-                deleteDirectory(buildResultDir.toPath());
-                consoleView.logMessage("Cleaned up temporary directory: " + buildResultDir.getAbsolutePath());
+                Path prebuildPath = buildResultDir.toPath().resolve("prebuild");
+                deleteDirectoryWithExclusions(buildResultDir, prebuildPath);
             } catch (IOException e) {
                 consoleView.logError("Failed to clean up temporary directory " + buildResultDir.getAbsolutePath() + ": " + e.getMessage());
             }
@@ -531,36 +569,73 @@ public class QtImportWizard extends Wizard implements IImportWizard {
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             consoleView.logMessage(Messages.QtImportWizard_111 + String.join(" ", command)); //$NON-NLS-2$
             Process process = processBuilder.start();
-            try (BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = stdoutReader.readLine()) != null) {
-                    consoleView.logMessage(line);
-                }
-            }
-            try (BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-                String line;
-                while ((line = stderrReader.readLine()) != null) {
-                    if (line.contains("INFO")) { //$NON-NLS-1$
-                        consoleView.logMessage(line);
-                    } else if (line.contains("WARNING")) { //$NON-NLS-1$
-                        consoleView.logMessage(line);
-                    } else if (line.contains("ERROR") || line.contains("CRITICAL")) { //$NON-NLS-1$ //$NON-NLS-2$
-                        consoleView.logError(line);
-                    } else {
-                        consoleView.logMessage(line);
+
+            Thread stdoutThread = new Thread(() -> {
+                try (BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = stdoutReader.readLine()) != null) {
+                        String finalLine = line;
+                        Display.getDefault().asyncExec(() -> {
+                            consoleView.logMessage(finalLine);
+                        });
                     }
+                } catch (IOException e) {
+                    String errorMessage = "Error reading stdout: " + e.getMessage();
+                    Display.getDefault().asyncExec(() -> {
+                        consoleView.logError(errorMessage);
+                    });
                 }
-            }
+            });
+
+            Thread stderrThread = new Thread(() -> {
+                try (BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                    String line;
+                    while ((line = stderrReader.readLine()) != null) {
+                        String finalLine = line; 
+                        Display.getDefault().asyncExec(() -> {
+                            if (finalLine.contains("INFO")) {
+                                consoleView.logMessage(finalLine);
+                            } else if (finalLine.contains("WARNING")) {
+                                consoleView.logMessage(finalLine);
+                            } else if (finalLine.contains("ERROR") || finalLine.contains("CRITICAL")) {
+                                consoleView.logError(finalLine);
+                            } else {
+                                consoleView.logMessage(finalLine);
+                            }
+                        });
+                    }
+                } catch (IOException e) {
+                    String errorMessage = "Error reading stderr: " + e.getMessage();
+                    Display.getDefault().asyncExec(() -> {
+                        consoleView.logError(errorMessage);
+                    });
+                }
+            });
+
+            stdoutThread.start();
+            stderrThread.start();
+
             int exitCode = process.waitFor();
+            
+            stdoutThread.join();
+            stderrThread.join();
+
             if (exitCode != 0) {
-                consoleView.logError(Messages.QtImportWizard_117 + exitCode);
+                Display.getDefault().asyncExec(() -> {
+                    consoleView.logError(Messages.QtImportWizard_117 + exitCode);
+                });
                 return false;
             } else {
-                consoleView.logMessage(Messages.QtImportWizard_118);
+                Display.getDefault().asyncExec(() -> {
+                    consoleView.logMessage(Messages.QtImportWizard_118);
+                });
                 return true;
             }
         } catch (IOException | InterruptedException e) {
-            consoleView.logError("Failed to execute command: " + String.join(" ", command) + ": " + e.getMessage());
+            String errorMessage = "Failed to execute command: " + String.join(" ", command) + ": " + e.getMessage();
+            Display.getDefault().asyncExec(() -> {
+                consoleView.logError(errorMessage);
+            });
             return false;
         }
     }
