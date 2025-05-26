@@ -26,6 +26,7 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 	private static final String INCLUDES = "coverage.includes";
 	private static final String EXCLUDES = "coverage.excludes";
 	private static final String LLVM_COV_PATH = "coverage.llvm_cov_path";
+	private static final String LLVM_PROFDATA_PATH = "coverage.llvm_profdata_path";
 	private static final String ERROR_NO_STORE = "Error: Preference store is not available. Please check plugin initialization.";
 	private static final String ERROR_NOT_INITIALIZED = "Plugin is not initialized. Preference store is unavailable.";
 
@@ -35,6 +36,7 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 	private Text includesText;
 	private Text excludesText;
 	private Text llvmCovPathText;
+	private Text llvmProfdataPathText;
 
 	public CoveragePreferencePage() {
 	}
@@ -94,6 +96,10 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 		llvmCovPathText = createLabeledText(generalGroup, Messages.CoveragePreferencePage_23,
 				store.getString(LLVM_COV_PATH));
 		createBrowseButton(generalGroup, llvmCovPathText, Messages.CoveragePreferencePage_24);
+
+		llvmProfdataPathText = createLabeledText(generalGroup, Messages.CoveragePreferencePage_9,
+				store.getString(LLVM_PROFDATA_PATH));
+		createBrowseButton(generalGroup, llvmProfdataPathText, Messages.CoveragePreferencePage_10);
 	}
 
 	private Group createGroup(Composite parent, String text, int columns) {
@@ -146,6 +152,7 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 		includesText.setText(store.getDefaultString(INCLUDES));
 		excludesText.setText(store.getDefaultString(EXCLUDES));
 		llvmCovPathText.setText(store.getDefaultString(LLVM_COV_PATH));
+		llvmProfdataPathText.setText(store.getDefaultString(LLVM_PROFDATA_PATH));
 		super.performDefaults();
 	}
 
@@ -169,6 +176,7 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 		store.setValue(INCLUDES, includesText.getText());
 		store.setValue(EXCLUDES, excludesText.getText());
 		store.setValue(LLVM_COV_PATH, llvmCovPathText.getText());
+		store.setValue(LLVM_PROFDATA_PATH, llvmProfdataPathText.getText());
 		CoverageSettingsManager.notifySettingsChanged();
 	}
 }

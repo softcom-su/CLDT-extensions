@@ -51,14 +51,14 @@ import su.softcom.cldt.ui.dialogs.ProjectSelectionDialog;
 
 public class CoverageTab extends AbstractLaunchConfigurationTab {
 	private static final Logger LOGGER = Logger.getLogger(CoverageTab.class.getName());
-	private static final String PROJECT_NAME_KEY = "projectName"; //$NON-NLS-1$
-	private static final String TARGET_NAME_KEY = "targetName"; //$NON-NLS-1$
-	private static final String ANALYSIS_SCOPE_KEY = "analysisScope"; //$NON-NLS-1$
-	private static final String SELECTED_FOLDERS_KEY = "selectedFolders"; //$NON-NLS-1$
-	private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList("c", "h", "cpp", "hpp", "cc", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-			"cxx", "hh", "hxx", "C", "inl", "tcc", "c++", "ipp", "cu", "cppm", "ixx", "tpp", "ihh", "cuh")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$ //$NON-NLS-11$ //$NON-NLS-12$ //$NON-NLS-13$ //$NON-NLS-14$
+	private static final String PROJECT_NAME_KEY = "projectName";
+	private static final String TARGET_NAME_KEY = "targetName";
+	private static final String ANALYSIS_SCOPE_KEY = "analysisScope";
+	private static final String SELECTED_FOLDERS_KEY = "selectedFolders";
+	private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList("c", "h", "cpp", "hpp", "cc",
+			"cxx", "hh", "hxx", "C", "inl", "tcc", "c++", "ipp", "cu", "cppm", "ixx", "tpp", "ihh", "cuh"));
 	private static final Set<String> EXCLUDED_FOLDERS = new HashSet<>(
-			Arrays.asList("build", "test", "tests", "unit_test", "test_suite")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+			Arrays.asList("build", "test", "tests", "unit_test", "test_suite"));
 
 	private Text projectText;
 	private ComboViewer targetComboViewer;
@@ -122,7 +122,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 												&& ALLOWED_EXTENSIONS.contains(file.getFileExtension().toLowerCase())))
 								.filter(member -> member instanceof IFile || hasValidFiles(member)).toArray();
 					} catch (CoreException e) {
-						LOGGER.log(Level.SEVERE, "Error getting project members", e); //$NON-NLS-1$
+						LOGGER.log(Level.SEVERE, "Error getting project members", e);
 						return new Object[0];
 					}
 				} else if (parentElement instanceof IFolder folder) {
@@ -134,7 +134,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 												&& ALLOWED_EXTENSIONS.contains(file.getFileExtension().toLowerCase())))
 								.filter(member -> member instanceof IFile || hasValidFiles(member)).toArray();
 					} catch (CoreException e) {
-						LOGGER.log(Level.SEVERE, "Error getting folder members", e); //$NON-NLS-1$
+						LOGGER.log(Level.SEVERE, "Error getting folder members", e);
 						return new Object[0];
 					}
 				}
@@ -162,7 +162,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				try {
 					members = element instanceof IProject project ? project.members() : ((IFolder) element).members();
 				} catch (CoreException e) {
-					LOGGER.log(Level.SEVERE, "Error checking valid files", e); //$NON-NLS-1$
+					LOGGER.log(Level.SEVERE, "Error checking valid files", e);
 					return false;
 				}
 				return Arrays.stream(members).filter(member -> !EXCLUDED_FOLDERS.contains(member.getName()))
@@ -205,10 +205,9 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 							treeViewer.setChecked(item, checked);
 						}
 					} catch (CoreException e) {
-						LOGGER.log(Level.SEVERE, "Error updating check state for folder", e); //$NON-NLS-1$
+						LOGGER.log(Level.SEVERE, "Error updating check state for folder", e);
 					}
 				}
-
 				updateParentCheckState(element, checked);
 				updateLaunchConfigurationDialog();
 			}
@@ -220,7 +219,6 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 					if (checked) {
 						treeViewer.setChecked(parent, true);
 					} else {
-
 						if (!hasCheckedChildren(parent)) {
 							treeViewer.setChecked(parent, false);
 						}
@@ -238,7 +236,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 						}
 					}
 				} catch (Exception e) {
-					LOGGER.log(Level.SEVERE, "Error checking children state", e); //$NON-NLS-1$
+					LOGGER.log(Level.SEVERE, "Error checking children state", e);
 				}
 				return false;
 			}
@@ -260,7 +258,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 					treeViewer.setCheckedElements(allItems.toArray());
 					updateLaunchConfigurationDialog();
 				} catch (CoreException ex) {
-					LOGGER.log(Level.SEVERE, "Error selecting all files and folders", ex); //$NON-NLS-1$
+					LOGGER.log(Level.SEVERE, "Error selecting all files and folders", ex);
 				}
 			}
 		}));
@@ -336,7 +334,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 	@Override
 	public void setDefaults(ILaunchConfigurationWorkingCopy configuration) {
 		configuration.setAttribute(PROJECT_NAME_KEY, getCurrentProject());
-		configuration.setAttribute(TARGET_NAME_KEY, ""); //$NON-NLS-1$
+		configuration.setAttribute(TARGET_NAME_KEY, "");
 		configuration.setAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 		configuration.setAttribute(SELECTED_FOLDERS_KEY, new ArrayList<>());
 	}
@@ -347,7 +345,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 			String projectName = configuration.getAttribute(PROJECT_NAME_KEY, getCurrentProject());
 			projectText.setText(projectName);
 			updateTargets();
-			String targetName = configuration.getAttribute(TARGET_NAME_KEY, ""); //$NON-NLS-1$
+			String targetName = configuration.getAttribute(TARGET_NAME_KEY, "");
 			targetCombo.setText(targetName);
 			List<String> savedFiles = configuration.getAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 			List<String> savedFolders = configuration.getAttribute(SELECTED_FOLDERS_KEY, new ArrayList<>());
@@ -364,7 +362,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				}
 			}
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e); //$NON-NLS-1$
+			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e);
 		}
 	}
 
@@ -400,7 +398,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		try {
 			members = resource instanceof IProject project ? project.members() : ((IFolder) resource).members();
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error checking valid files", e); //$NON-NLS-1$
+			LOGGER.log(Level.SEVERE, "Error checking valid files", e);
 			return false;
 		}
 		return Arrays.stream(members).filter(member -> !EXCLUDED_FOLDERS.contains(member.getName()))
@@ -434,7 +432,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 	public static String getCurrentProject() {
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
 		if (window == null)
-			return ""; //$NON-NLS-1$
+			return "";
 		ISelection selection = window.getSelectionService().getSelection();
 		if (selection instanceof IStructuredSelection structuredSelection) {
 			Object element = structuredSelection.getFirstElement();
@@ -445,7 +443,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				}
 			}
 		}
-		return ""; //$NON-NLS-1$
+		return "";
 	}
 
 	@Override

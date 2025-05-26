@@ -29,17 +29,9 @@ import su.softcom.cldt.testing.utils.CoverageUtils;
 public class AnnotationUpdater {
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String MARKER_TYPE = "su.softcom.cldt.testing.coverage";
-	private static final String INFO_SKIPPING_FILE = "Skipping annotations for excluded file: %s";
-	private static final String INFO_REMOVING_MARKERS = "Removing coverage markers for excluded file: %s";
 	private static final String ERROR_DELETE_MARKERS = "Failed to delete coverage markers for excluded file: %s";
 	private static final String ERROR_CREATE_MARKERS = "Failed to create coverage markers for file: %s";
 	private static final String ERROR_BAD_LOCATION = "Failed to apply annotation due to bad location at line %d";
-	private static final String INFO_FUNCTION_ANNOTATION = "Applying function annotation: type=%s, message=%s, line=%d";
-	private static final String INFO_FUNCTION_INPUT = "Processing function: name=%s, signatureLine=%d, executionCount=%d";
-	private static final String INFO_FUNCTION_GROUP = "Functions grouped by line %d: %s, anyNotCovered=%b";
-	private static final String INFO_CREATE_FUNCTION_ANNOTATION = "Creating function annotation: type=%s, message=%s, anyNotCovered=%b";
-	private static final String INFO_CREATE_FUNCTION_MARKER = "Creating function marker: message=%s, line=%d";
-	private static final String INFO_SIGNATURE_LINES = "Signature lines processed: %s";
 	private static final ILog LOGGER = Platform.getLog(AnnotationUpdater.class);
 	private final CoverageDataManager dataManager;
 	private String currentMetric = Messages.CoverageResultView_1;
@@ -54,13 +46,11 @@ public class AnnotationUpdater {
 
 	public void updateAnnotations(ITextEditor editor) {
 		if (editor == null || dataManager.getCoverageData() == null) {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, "Skipping updateAnnotations: editor or data is null"));
 			return;
 		}
 
 		IFile file = getFileFromEditor(editor);
 		if (file == null) {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, "Skipping updateAnnotations: file is null"));
 			return;
 		}
 
@@ -72,7 +62,6 @@ public class AnnotationUpdater {
 
 		IAnnotationModel model = getAnnotationModel(editor);
 		if (model == null) {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, "Skipping updateAnnotations: annotation model is null"));
 			return;
 		}
 
@@ -95,7 +84,6 @@ public class AnnotationUpdater {
 		if (model != null) {
 			clearExistingAnnotations(model);
 		}
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_SKIPPING_FILE, filePath)));
 	}
 
 	private IAnnotationModel getAnnotationModel(ITextEditor editor) {
@@ -216,31 +204,19 @@ public class AnnotationUpdater {
 		List<ReportParser.FunctionCoverage> functions = CoverageUtils.findFunctionCoverageForFile(filePath,
 				dataManager.getFunctionCoverage());
 		if (functions != null && !functions.isEmpty()) {
-			for (ReportParser.FunctionCoverage function : functions) {
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_FUNCTION_INPUT, function.name,
-						function.signatureLine, function.executionCount)));
-			}
-
 			Map<Integer, List<ReportParser.FunctionCoverage>> functionsByLine = new HashMap<>();
 			for (ReportParser.FunctionCoverage function : functions) {
 				functionsByLine.computeIfAbsent(function.signatureLine, k -> new ArrayList<>()).add(function);
 			}
-
-			LOGGER.log(
-					new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_SIGNATURE_LINES, functionsByLine.keySet())));
 			for (var entry : functionsByLine.entrySet()) {
 				int signatureLine = entry.getKey();
 				List<ReportParser.FunctionCoverage> lineFunctions = entry.getValue();
 				boolean anyCovered = lineFunctions.stream().anyMatch(f -> f.executionCount > 0);
 				boolean anyNotCovered = !anyCovered;
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-						String.format(INFO_FUNCTION_GROUP, signatureLine, lineFunctions, anyNotCovered)));
 				ReportParser.FunctionCoverage representativeFunction = lineFunctions.get(0);
 				CoverageAnnotation annotation = createFunctionAnnotation(representativeFunction, anyNotCovered);
 				addAnnotationToModel(model, editor, signatureLine, annotation);
 			}
-		} else {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, String.format("No functions found for file: %s", filePath)));
 		}
 	}
 
@@ -249,8 +225,6 @@ public class AnnotationUpdater {
 				: CoverageAnnotation.TYPE_COVERED_FUNCTION;
 		String message = String.format("Function %s at line %d: %s", function.name, function.signatureLine,
 				anyNotCovered ? "Not covered" : "Covered");
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-				String.format(INFO_CREATE_FUNCTION_ANNOTATION, type, message, anyNotCovered)));
 		return new CoverageAnnotation(type, message);
 	}
 
@@ -262,8 +236,6 @@ public class AnnotationUpdater {
 			int offset = provider.getDocument(input).getLineOffset(lineNumber - 1);
 			int length = provider.getDocument(input).getLineLength(lineNumber - 1);
 			model.addAnnotation(annotation, new Position(offset, length));
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-					String.format(INFO_FUNCTION_ANNOTATION, annotation.getType(), annotation.getText(), lineNumber)));
 		} catch (org.eclipse.jface.text.BadLocationException e) {
 			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, String.format(ERROR_BAD_LOCATION, lineNumber), e));
 		}
@@ -272,7 +244,6 @@ public class AnnotationUpdater {
 	public void updateOpenEditors() {
 		IWorkbench workbench = PlatformUI.getWorkbench();
 		if (workbench == null) {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, "Skipping updateOpenEditors: workbench is null"));
 			return;
 		}
 
@@ -296,7 +267,6 @@ public class AnnotationUpdater {
 
 	public synchronized void createCoverageMarkers(IFile file) {
 		if (dataManager.getCoverageData() == null) {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, "Skipping createCoverageMarkers: coverage data is null"));
 			return;
 		}
 
@@ -323,7 +293,6 @@ public class AnnotationUpdater {
 	private void clearMarkers(IFile file, String filePath) {
 		try {
 			file.deleteMarkers(MARKER_TYPE, true, IResource.DEPTH_INFINITE);
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_REMOVING_MARKERS, filePath)));
 		} catch (CoreException e) {
 			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, String.format(ERROR_DELETE_MARKERS, filePath), e));
 		}
@@ -402,21 +371,14 @@ public class AnnotationUpdater {
 			for (ReportParser.FunctionCoverage function : functions) {
 				functionsByLine.computeIfAbsent(function.signatureLine, k -> new ArrayList<>()).add(function);
 			}
-
-			LOGGER.log(
-					new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_SIGNATURE_LINES, functionsByLine.keySet())));
 			for (var entry : functionsByLine.entrySet()) {
 				int signatureLine = entry.getKey();
 				List<ReportParser.FunctionCoverage> lineFunctions = entry.getValue();
 				boolean anyCovered = lineFunctions.stream().anyMatch(f -> f.executionCount > 0);
 				boolean anyNotCovered = !anyCovered;
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-						String.format(INFO_FUNCTION_GROUP, signatureLine, lineFunctions, anyNotCovered)));
 				ReportParser.FunctionCoverage representativeFunction = lineFunctions.get(0);
 				String message = String.format("Function %s at line %d: %s", representativeFunction.name, signatureLine,
 						anyNotCovered ? "Not covered" : "Covered");
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-						String.format(INFO_CREATE_FUNCTION_MARKER, message, signatureLine)));
 				createMarker(file, signatureLine, message);
 			}
 		}

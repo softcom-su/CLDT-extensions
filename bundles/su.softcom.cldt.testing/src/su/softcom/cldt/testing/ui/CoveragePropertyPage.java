@@ -19,17 +19,15 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.dialogs.PropertyPage;
 import su.softcom.cldt.testing.core.Activator;
-import su.softcom.cldt.testing.core.CoverageProjectSettings;
+import su.softcom.cldt.testing.core.CoveragePropertySettings;
 
 public class CoveragePropertyPage extends PropertyPage {
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String WARNING_READ_DIR = "Failed to read coverage data directory in UI, using default: %s";
-	private static final String WARNING_READ_EXCLUDES = "Failed to read project excludes in UI, using empty string";
 	private static final String ERROR_SAVE_PROPERTIES = "Failed to save project properties: %s";
 	private static final String ERROR_SAVE_PROPERTIES_UI = "Failed to save project properties in UI";
 
 	private Text coverageDataDirText;
-	private Text projectExcludesText;
 	private IProject project;
 
 	public CoveragePropertyPage() {
@@ -42,7 +40,6 @@ public class CoveragePropertyPage extends PropertyPage {
 
 		project = ((IResource) getElement()).getProject();
 		createProfileDataGroup(mainComposite);
-		createCoverageScopeGroup(mainComposite);
 
 		return mainComposite;
 	}
@@ -56,33 +53,17 @@ public class CoveragePropertyPage extends PropertyPage {
 	}
 
 	private String initializeCoverageDataDir() {
-		String coverageDataDir = CoverageProjectSettings.getDefaultCoverageDataDir(project);
+		String coverageDataDir = CoveragePropertySettings.getDefaultCoverageDataDir(project);
 		try {
-			String storedValue = CoverageProjectSettings.getCoverageDataDirProperty(project);
+			String storedValue = CoveragePropertySettings.getCoverageDataDirProperty(project);
 			if (!storedValue.isEmpty()) {
-				return CoverageProjectSettings.toRelativePath(project, storedValue);
+				return CoveragePropertySettings.toRelativePath(project, storedValue);
 			}
 		} catch (CoreException e) {
 			Activator.getDefault().getLog()
 					.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_READ_DIR, coverageDataDir), e));
 		}
 		return coverageDataDir;
-	}
-
-	private void createCoverageScopeGroup(Composite parent) {
-		Group scopeGroup = createGroup(parent, Messages.CoveragePropertyPage_8, 2);
-		String projectExcludes = initializeProjectExcludes();
-		projectExcludesText = createLabeledText(scopeGroup, Messages.CoveragePropertyPage_9, projectExcludes);
-		projectExcludesText.setToolTipText(Messages.CoveragePropertyPage_10);
-	}
-
-	private String initializeProjectExcludes() {
-		try {
-			return CoverageProjectSettings.getProjectExcludes(project);
-		} catch (CoreException e) {
-			Activator.getDefault().getLog().log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_READ_EXCLUDES, e));
-			return "";
-		}
 	}
 
 	private Group createGroup(Composite parent, String text, int columns) {
@@ -113,7 +94,7 @@ public class CoveragePropertyPage extends PropertyPage {
 				dialog.setFilterPath(project.getLocation().toOSString());
 				String absolutePath = dialog.open();
 				if (absolutePath != null) {
-					String relativePath = CoverageProjectSettings.toRelativePath(project, absolutePath);
+					String relativePath = CoveragePropertySettings.toRelativePath(project, absolutePath);
 					coverageDataDirText.setText(relativePath);
 				}
 			}
@@ -122,19 +103,16 @@ public class CoveragePropertyPage extends PropertyPage {
 
 	@Override
 	protected void performDefaults() {
-		coverageDataDirText.setText(CoverageProjectSettings.getDefaultCoverageDataDir(project));
-		projectExcludesText.setText("");
+		coverageDataDirText.setText(CoveragePropertySettings.getDefaultCoverageDataDir(project));
 		super.performDefaults();
 	}
 
 	@Override
 	public boolean performOk() {
 		String coverageDataDir = coverageDataDirText.getText();
-		String projectExcludes = projectExcludesText.getText();
 
 		try {
-			String errorMessage = CoverageProjectSettings.validateAndSaveSettings(project, coverageDataDir,
-					projectExcludes);
+			String errorMessage = CoveragePropertySettings.validateAndSaveSettings(project, coverageDataDir);
 			if (errorMessage != null) {
 				setErrorMessage(errorMessage);
 				return false;
