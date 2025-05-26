@@ -2,13 +2,14 @@ package su.softcom.cldt.testing.core;
 
 import org.eclipse.jface.preference.IPreferenceStore;
 
-public class CoverageSettings {
+public class CoveragePreferenceSettings {
 	private static final String OPEN_VIEW_AUTO = "coverage.open_view_auto";
 	private static final String GENERATE_REPORT = "coverage.generate_report";
 	private static final String CLEAN_PROFILE_DATA = "coverage.clean_profile_data";
 	private static final String INCLUDES = "coverage.includes";
 	private static final String EXCLUDES = "coverage.excludes";
 	private static final String LLVM_COV_PATH = "coverage.llvm_cov_path";
+	private static final String LLVM_PROFDATA_PATH = "coverage.llvm_profdata_path";
 	private static final String COVERED_TEXT = "coverage.covered.text";
 	private static final String COVERED_HIGHLIGHT = "coverage.covered.highlight";
 	private static final String COVERED_OVERVIEW = "coverage.covered.overview";
@@ -24,6 +25,7 @@ public class CoverageSettings {
 	private static final String DEFAULT_INCLUDES = "*";
 	private static final String DEFAULT_EXCLUDES = "";
 	private static final String DEFAULT_LLVM_COV_PATH = "/usr/bin/llvm-cov";
+	private static final String DEFAULT_LLVM_PROFDATA_PATH = "/usr/bin/llvm-profdata";
 	private static final boolean DEFAULT_COVERED_TEXT = true;
 	private static final boolean DEFAULT_COVERED_HIGHLIGHT = true;
 	private static final boolean DEFAULT_COVERED_OVERVIEW = true;
@@ -35,7 +37,7 @@ public class CoverageSettings {
 
 	private static final String ERROR_ACTIVATOR_NOT_INITIALIZED = "Activator is not initialized";
 
-	private CoverageSettings() {
+	private CoveragePreferenceSettings() {
 	}
 
 	private static IPreferenceStore getStore() {
@@ -92,6 +94,14 @@ public class CoverageSettings {
 
 	public static void setLlvmCovPath(String value) {
 		getStore().setValue(LLVM_COV_PATH, value);
+	}
+
+	public static String getLlvmProfdataPath() {
+		return getStore().getString(LLVM_PROFDATA_PATH);
+	}
+
+	public static void setLlvmProfdataPath(String value) {
+		getStore().setValue(LLVM_PROFDATA_PATH, value);
 	}
 
 	public static boolean isCoveredText() {
@@ -166,6 +176,7 @@ public class CoverageSettings {
 		store.setDefault(INCLUDES, DEFAULT_INCLUDES);
 		store.setDefault(EXCLUDES, DEFAULT_EXCLUDES);
 		store.setDefault(LLVM_COV_PATH, DEFAULT_LLVM_COV_PATH);
+		store.setDefault(LLVM_PROFDATA_PATH, DEFAULT_LLVM_PROFDATA_PATH);
 		store.setDefault(COVERED_TEXT, DEFAULT_COVERED_TEXT);
 		store.setDefault(COVERED_HIGHLIGHT, DEFAULT_COVERED_HIGHLIGHT);
 		store.setDefault(COVERED_OVERVIEW, DEFAULT_COVERED_OVERVIEW);

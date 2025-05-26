@@ -13,19 +13,17 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class CoverageProjectSettings {
+public class CoveragePropertySettings {
 	private static final String PLUGIN_ID = Activator.PLUGIN_ID;
 	private static final QualifiedName COVERAGE_DATA_DIR = new QualifiedName(PLUGIN_ID, "coverage.data_dir");
-	private static final QualifiedName PROJECT_EXCLUDES = new QualifiedName(PLUGIN_ID, "project_excludes");
 	private static final String DEFAULT_BUILD_DIR = "build";
 	private static final String WARNING_DEFAULT_BUILD_DIR = "Failed to get default build folder, using '%s'";
 	private static final String WARNING_RELATIVE_PATH = "Failed to convert to relative path: %s";
 	private static final String WARNING_ABSOLUTE_PATH = "Failed to convert to absolute path: %s";
 	private static final String ERROR_INVALID_DIR = "Coverage Data Directory does not exist or is not a directory";
 	private static final String ERROR_DIR_OUTSIDE_PROJECT = "Coverage Data Directory must be inside the project";
-	private static final String ERROR_EMPTY_EXCLUDE_PATTERNS = "Project-Specific Excludes contains empty patterns";
 
-	private CoverageProjectSettings() {
+	private CoveragePropertySettings() {
 	}
 
 	public static String getCoverageDataDirProperty(IProject project) throws CoreException {
@@ -35,15 +33,6 @@ public class CoverageProjectSettings {
 
 	public static void setCoverageDataDir(IProject project, String coverageDataDir) throws CoreException {
 		project.setPersistentProperty(COVERAGE_DATA_DIR, coverageDataDir);
-	}
-
-	public static String getProjectExcludes(IProject project) throws CoreException {
-		String value = project.getPersistentProperty(PROJECT_EXCLUDES);
-		return value != null ? value : "";
-	}
-
-	public static void setProjectExcludes(IProject project, String projectExcludes) throws CoreException {
-		project.setPersistentProperty(PROJECT_EXCLUDES, projectExcludes);
 	}
 
 	public static String getDefaultCoverageDataDir(IProject project) {
@@ -83,20 +72,13 @@ public class CoverageProjectSettings {
 		}
 	}
 
-	public static String validateAndSaveSettings(IProject project, String coverageDataDir, String projectExcludes)
-			throws CoreException {
+	public static String validateAndSaveSettings(IProject project, String coverageDataDir) throws CoreException {
 		String validationError = validateCoverageDataDir(project, coverageDataDir);
 		if (validationError != null) {
 			return validationError;
 		}
 
-		validationError = validateProjectExcludes(projectExcludes);
-		if (validationError != null) {
-			return validationError;
-		}
-
 		setCoverageDataDir(project, coverageDataDir);
-		setProjectExcludes(project, projectExcludes);
 		CoverageSettingsManager.notifySettingsChanged();
 		return null;
 	}
@@ -111,17 +93,6 @@ public class CoverageProjectSettings {
 			Path dirPath = dir.toPath().toAbsolutePath().normalize();
 			if (!dirPath.startsWith(projectPath)) {
 				return ERROR_DIR_OUTSIDE_PROJECT;
-			}
-		}
-		return null;
-	}
-
-	private static String validateProjectExcludes(String projectExcludes) {
-		if (!projectExcludes.isEmpty()) {
-			for (String pattern : projectExcludes.split(";")) {
-				if (pattern.trim().isEmpty()) {
-					return ERROR_EMPTY_EXCLUDE_PATTERNS;
-				}
 			}
 		}
 		return null;

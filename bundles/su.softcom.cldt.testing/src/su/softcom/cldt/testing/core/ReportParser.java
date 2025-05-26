@@ -32,12 +32,6 @@ public class ReportParser {
 	private static final String WARNING_INVALID_FUNCTION = "Invalid function name format: %s";
 	private static final String WARNING_INVALID_FUNCTION_EXEC = "Invalid function coverage format: %s";
 	private static final String WARNING_READ_FILE = "Failed to read file for signature line detection: %s";
-	private static final String INFO_PARSE_FUNCTION = "Parsing FN: %s, startLine=%d, functionName=%s, signatureLine=%d";
-	private static final String INFO_DUPLICATE_FUNCTION = "Skipping duplicate function: %s, startLine=%d";
-	private static final String INFO_PARSE_FUNCTION_EXEC = "Parsing FNDA: %s, functionName=%s, executionCount=%d, updated=%b";
-	private static final String INFO_CLEAN_NAME = "Cleaning function name: raw=%s, cleaned=%s";
-	private static final String INFO_SIGNATURE_LINE = "findSignatureLine: file=%s, bodyLine=%d, foundLine=%s, signatureLine=%d";
-	private static final String INFO_FUNCTION_COVERAGE = "Function coverage for file %s: %s";
 	private static final ILog LOGGER = Platform.getLog(ReportParser.class);
 
 	private ReportParser() {
@@ -84,23 +78,20 @@ public class ReportParser {
 
 	public static class FunctionCoverage {
 		public String name;
+		public List<String> mangledNames;
 		public int executionCount;
 		public int startLine;
 		public int endLine;
 		public int signatureLine;
 
-		public FunctionCoverage(String name, int executionCount, int startLine, int signatureLine) {
+		public FunctionCoverage(String name, List<String> mangledNames, int executionCount, int startLine,
+				int signatureLine) {
 			this.name = name;
+			this.mangledNames = mangledNames;
 			this.executionCount = executionCount;
 			this.startLine = startLine;
 			this.endLine = -1;
 			this.signatureLine = signatureLine;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("{name=%s, startLine=%d, signatureLine=%d, executionCount=%d}", name, startLine,
-					signatureLine, executionCount);
 		}
 	}
 
@@ -152,9 +143,6 @@ public class ReportParser {
 		nonFunctionLineCoverage.put(context.currentFile, context.currentNonFunctionLineCoverage);
 		branchCoverage.put(context.currentFile, context.currentBranchCoverage);
 		functionCoverage.put(context.currentFile, context.currentFunctionCoverage);
-		// Log function coverage
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-				String.format(INFO_FUNCTION_COVERAGE, context.currentFile, context.currentFunctionCoverage)));
 	}
 
 	private static void assignFunctionEndLines(FileContext context) {
@@ -223,7 +211,7 @@ public class ReportParser {
 				}
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			logWarning(String.format(WARNING_INVALID_LINE, line), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_LINE, line), e));
 		}
 	}
 
@@ -236,7 +224,7 @@ public class ReportParser {
 				context.currentBranchCoverage.add(new BranchCoverage(lineNumber, hits > 0));
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			logWarning(String.format(WARNING_INVALID_BRANCH, line), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_BRANCH, line), e));
 		}
 	}
 
@@ -245,22 +233,23 @@ public class ReportParser {
 			String[] parts = line.substring(3).split(",");
 			if (parts.length >= 2) {
 				int startLine = Integer.parseInt(parts[0]);
-				String functionName = cleanRawName(parts[1]);
-				// Check for duplicate functions with same startLine and name
+				String rawName = parts[1];
+				context.tempFunctionNames.computeIfAbsent(startLine, k -> new ArrayList<>()).add(rawName);
+				String functionName = DemangledNameUtils
+						.findCommonFunctionName(context.tempFunctionNames.get(startLine));
+
 				boolean exists = context.currentFunctionCoverage.stream()
 						.anyMatch(f -> f.startLine == startLine && f.name.equals(functionName));
 				if (exists) {
-					LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-							String.format(INFO_DUPLICATE_FUNCTION, functionName, startLine)));
 					return;
 				}
+
 				int signatureLine = findSignatureLine(context.currentFile, startLine);
-				context.currentFunctionCoverage.add(new FunctionCoverage(functionName, 0, startLine, signatureLine));
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-						String.format(INFO_PARSE_FUNCTION, line, startLine, functionName, signatureLine)));
+				context.currentFunctionCoverage.add(new FunctionCoverage(functionName,
+						new ArrayList<>(context.tempFunctionNames.get(startLine)), 0, startLine, signatureLine));
 			}
 		} catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
-			logWarning(String.format(WARNING_INVALID_FUNCTION, line), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_FUNCTION, line), e));
 		}
 	}
 
@@ -269,20 +258,20 @@ public class ReportParser {
 			String[] parts = line.substring(5).split(",");
 			if (parts.length >= 2) {
 				int executionCount = Integer.parseInt(parts[0]);
-				String functionName = cleanRawName(parts[1]);
+				String rawName = parts[1];
+				String functionName = DemangledNameUtils.extractCleanFunctionName(rawName);
 				boolean updated = context.currentFunctionCoverage.stream().filter(f -> f.name.equals(functionName))
 						.findFirst().map(f -> {
 							f.executionCount = executionCount;
 							return true;
 						}).orElse(false);
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-						String.format(INFO_PARSE_FUNCTION_EXEC, line, functionName, executionCount, updated)));
 				if (!updated) {
-					logWarning(String.format("No function found for FNDA: %s", line), null);
+					LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+							String.format("No function found for FNDA: %s", line)));
 				}
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			logWarning(String.format(WARNING_INVALID_FUNCTION_EXEC, line), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_FUNCTION_EXEC, line), e));
 		}
 	}
 
@@ -311,7 +300,7 @@ public class ReportParser {
 				counters.put(COVERED_FUNCTIONS_KEY, Integer.parseInt(line.substring(4)));
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			logWarning("Invalid counter format: " + line, e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Invalid counter format: " + line, e));
 		}
 
 		return counters;
@@ -342,10 +331,6 @@ public class ReportParser {
 		return result;
 	}
 
-	private static void logWarning(String message, Throwable cause) {
-		LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, message, cause));
-	}
-
 	private static int findSignatureLine(String filePath, int bodyLine) {
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
 			String line;
@@ -358,14 +343,10 @@ public class ReportParser {
 				if (currentLine == bodyLine && trimmed.startsWith("{")) {
 					foundBody = true;
 					if (prevLine != null && !prevLine.trim().isEmpty()) {
-						LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-								String.format(INFO_SIGNATURE_LINE, filePath, bodyLine, prevLine, currentLine - 1)));
 						return currentLine - 1;
 					}
 				} else if (currentLine >= bodyLine && !foundBody) {
 					if (trimmed.contains(")") && !trimmed.startsWith("//") && !trimmed.startsWith("/*")) {
-						LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-								String.format(INFO_SIGNATURE_LINE, filePath, bodyLine, line, currentLine)));
 						return currentLine;
 					}
 				}
@@ -377,8 +358,6 @@ public class ReportParser {
 						currentLine++;
 						if (currentLine == bodyLine) {
 							if (line.trim().contains(")") && !line.trim().startsWith("//")) {
-								LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-										String.format(INFO_SIGNATURE_LINE, filePath, bodyLine, line, bodyLine)));
 								return bodyLine;
 							}
 							break;
@@ -387,21 +366,9 @@ public class ReportParser {
 				}
 			}
 		} catch (IOException e) {
-			logWarning(String.format(WARNING_READ_FILE, filePath), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_READ_FILE, filePath), e));
 		}
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-				String.format(INFO_SIGNATURE_LINE, filePath, bodyLine, "none", bodyLine)));
 		return bodyLine;
-	}
-
-	private static String cleanRawName(String rawName) {
-		String cleaned = rawName.trim();
-		if (cleaned.startsWith("_") && cleaned.length() > 1) {
-			cleaned = cleaned.substring(1);
-		}
-		cleaned = cleaned.replaceAll("@\\d+$", "");
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_CLEAN_NAME, rawName, cleaned)));
-		return cleaned;
 	}
 
 	private static class FileContext {
@@ -417,6 +384,7 @@ public class ReportParser {
 		List<LineCoverage> tempLineCoverage;
 		List<BranchCoverage> currentBranchCoverage;
 		List<FunctionCoverage> currentFunctionCoverage;
+		Map<Integer, List<String>> tempFunctionNames;
 		int maxLineNumber;
 
 		void reset(String file) {
@@ -427,6 +395,7 @@ public class ReportParser {
 			tempLineCoverage = new ArrayList<>();
 			currentBranchCoverage = new ArrayList<>();
 			currentFunctionCoverage = new ArrayList<>();
+			tempFunctionNames = new HashMap<>();
 			maxLineNumber = 0;
 		}
 	}

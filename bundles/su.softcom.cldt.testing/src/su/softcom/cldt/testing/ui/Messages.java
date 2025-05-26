@@ -4,6 +4,7 @@ import org.eclipse.osgi.util.NLS;
 
 public class Messages extends NLS {
 	private static final String BUNDLE_NAME = Messages.class.getPackageName() + ".messages"; //$NON-NLS-1$
+	public static String CoveragePreferencePage_10;
 	public static String CoveragePreferencePage_15;
 	public static String CoveragePreferencePage_16;
 	public static String CoveragePreferencePage_17;
@@ -15,6 +16,7 @@ public class Messages extends NLS {
 	public static String CoveragePreferencePage_23;
 	public static String CoveragePreferencePage_24;
 	public static String CoveragePreferencePage_25;
+	public static String CoveragePreferencePage_9;
 	public static String CoveragePropertyPage_10;
 	public static String CoveragePropertyPage_12;
 	public static String CoveragePropertyPage_4;

@@ -31,9 +31,6 @@ public class CoverageResultView extends ViewPart {
 	private static final String LINE_COUNTERS = Messages.CoverageResultView_1;
 	private static final String BRANCH_COUNTERS = Messages.CoverageResultView_2;
 	private static final String FUNCTION_COUNTERS = Messages.CoverageResultView_3;
-	private static final String INFO_INITIALIZED = "CoverageResultView initialized";
-	private static final String INFO_DISPOSED = "CoverageResultView disposed";
-	private static final String INFO_EDITOR_OPENED = "Editor opened: %s";
 	private static final String WARNING_NULL_DISPOSED = "Cannot %s: treeViewer is null or disposed";
 	private static final String WARNING_NULL_DATA_PROVIDER = "Cannot refresh: both coverageData and dataProvider are null";
 	private static final String WARNING_NULL_DATA = "Cannot refresh: dataProvider returned null coverage data";
@@ -61,14 +58,12 @@ public class CoverageResultView extends ViewPart {
 		createColumns();
 		configureMenu();
 		getViewSite().getPage().addPartListener(editorPartListener);
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, INFO_INITIALIZED));
 	}
 
 	private class EditorPartListener implements IPartListener {
 		@Override
 		public void partOpened(IWorkbenchPart part) {
 			if (part instanceof ITextEditor editor) {
-				LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, String.format(INFO_EDITOR_OPENED, editor.getTitle())));
 				annotationUpdater.updateAnnotations(editor);
 			}
 		}
@@ -236,13 +231,14 @@ public class CoverageResultView extends ViewPart {
 			return;
 		}
 
+		CoverageDataManager.getInstance().setCoverageData(coverageResults, this.analysisScope);
+
 		Object[] expandedElements = treeViewer.getExpandedElements();
 		currentTreeNodes = dataProcessor.buildCoverageTree(coverageResults, filteredScope);
 		treeViewer.setInput(currentTreeNodes);
 		treeViewer.setExpandedElements(expandedElements);
 		treeViewer.refresh();
 
-		CoverageDataManager.getInstance().setCoverageData(coverageResults, this.analysisScope);
 		annotationUpdater.setCurrentMetric(selectedCounter);
 		annotationUpdater.updateOpenEditors();
 
@@ -287,16 +283,17 @@ public class CoverageResultView extends ViewPart {
 			return;
 		}
 
-		if (currentCoverageData == null) {
-			if (dataProvider == null) {
-				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_NULL_DATA_PROVIDER));
-				return;
-			}
+		if (currentCoverageData == null && dataProvider != null) {
 			currentCoverageData = dataProvider.getFullCoverageData();
 			if (currentCoverageData == null) {
 				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_NULL_DATA));
 				return;
 			}
+		}
+
+		if (currentCoverageData == null) {
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_NULL_DATA_PROVIDER));
+			return;
 		}
 
 		if (project == null) {
@@ -312,7 +309,6 @@ public class CoverageResultView extends ViewPart {
 	public void dispose() {
 		getViewSite().getPage().removePartListener(editorPartListener);
 		super.dispose();
-		LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, INFO_DISPOSED));
 	}
 
 	@Override

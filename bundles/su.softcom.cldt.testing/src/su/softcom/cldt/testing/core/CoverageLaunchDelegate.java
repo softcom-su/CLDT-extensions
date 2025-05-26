@@ -91,7 +91,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 	}
 
 	private String getCoverageDataDir(IProject project, ICMakeProject cmakeProject) throws CoreException {
-		String coverageDataDir = CoverageProjectSettings.getCoverageDataDirProperty(project);
+		String coverageDataDir = CoveragePropertySettings.getCoverageDataDirProperty(project);
 		if (coverageDataDir.isEmpty()) {
 			return cmakeProject.getBuildFolder().getLocation().toOSString();
 		}
@@ -139,13 +139,13 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			IProject project, IFolder buildFolder) throws CoreException {
 		CommandExecutor commandExecutor = new CommandExecutor();
 		try {
-			if (CoverageSettings.isCleanProfileData()) {
+			if (CoveragePreferenceSettings.isCleanProfileData()) {
 				CoverageSettingsManager.cleanProfileData(coverageDataDir);
 			}
 			runTests(commandExecutor, coverageDataDir, executablePath);
 			generateReport(commandExecutor, coverageDataDir, executablePath, analysisScope);
 			refreshCoverageDataDir(project, coverageDataDir);
-			if (CoverageSettings.isOpenViewAuto()) {
+			if (CoveragePreferenceSettings.isOpenViewAuto()) {
 				openCoverageView();
 			}
 			updateCoverageViewData(coverageData, analysisScope, project);
@@ -181,12 +181,10 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		String profileDataPath = Paths.get(coverageDataDir, PROFILE_DATA_FILE).toString();
 		generateProfileData(commandExecutor, rawProfilePath, profileDataPath);
 
-		if (CoverageSettings.isGenerateReportAfterBuild() && !analysisScope.isEmpty()) {
+		if (CoveragePreferenceSettings.isGenerateReportAfterBuild() && !analysisScope.isEmpty()) {
 			String reportPath = Paths.get(coverageDataDir, REPORT_FILE).toString();
 			generateLcovReport(commandExecutor, executablePath, profileDataPath, reportPath, analysisScope);
 		} else {
-			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
-					"Skipping LCOV report generation: analysisScope is empty or report generation is disabled"));
 			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
 					new HashMap<>(), new HashMap<>());
 		}
@@ -194,8 +192,8 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 
 	private void generateProfileData(CommandExecutor commandExecutor, String rawProfilePath, String profileDataPath)
 			throws IOException, InterruptedException {
-		List<String> profdataCommand = Arrays.asList("llvm-profdata", "merge", "-sparse", rawProfilePath, "-o",
-				profileDataPath);
+		List<String> profdataCommand = Arrays.asList(CoverageSettingsManager.getLlvmProfdataCommand(), "merge",
+				"-sparse", rawProfilePath, "-o", profileDataPath);
 		StringBuilder output = new StringBuilder();
 		try {
 			commandExecutor.executeCommand(profdataCommand, null, null, output);
@@ -253,9 +251,6 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 				final String filePath = line.substring(3).trim();
 				includeRecord = analysisScope.stream()
 						.anyMatch(scopePath -> filePath.equals(scopePath) || filePath.endsWith(scopePath));
-				if (!includeRecord) {
-					LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID, "Excluding file from LCOV report: " + filePath));
-				}
 			} else if (line.equals("end_of_record")) {
 				if (includeRecord) {
 					filteredLines.add(line);
@@ -276,7 +271,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 	}
 
 	private void refreshCoverageDataDir(IProject project, String coverageDataDir) throws CoreException {
-		String absoluteCoverageDir = CoverageProjectSettings.toAbsolutePath(project, coverageDataDir);
+		String absoluteCoverageDir = CoveragePropertySettings.toAbsolutePath(project, coverageDataDir);
 		Path coveragePath = Paths.get(absoluteCoverageDir);
 		Path projectPath = Paths.get(project.getLocation().toOSString());
 		if (coveragePath.startsWith(projectPath)) {

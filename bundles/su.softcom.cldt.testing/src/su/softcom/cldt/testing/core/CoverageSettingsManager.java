@@ -22,9 +22,10 @@ public class CoverageSettingsManager {
 	private static final List<String> PROFILE_FILES = Arrays.asList("coverage.profraw", "coverage.profdata",
 			"coverage_report.lcov");
 	private static final String DEFAULT_LLVM_COV = "llvm-cov";
+	private static final String DEFAULT_LLVM_PROFDATA = "llvm-profdata";
 	private static final String WARNING_DELETE_PROFILE_FILE = "Failed to delete profile file: %s";
 	private static final String WARNING_INVALID_LLVM_COV_PATH = "Invalid llvm-cov path: %s";
-	private static final String WARNING_PROJECT_EXCLUDES = "Failed to get project excludes for %s";
+	private static final String WARNING_INVALID_LLVM_PROFDATA_PATH = "Invalid llvm-profdata path: %s";
 	private static final List<Runnable> settingsChangeListeners = new ArrayList<>();
 
 	private CoverageSettingsManager() {
@@ -42,7 +43,7 @@ public class CoverageSettingsManager {
 	}
 
 	public static String getLlvmCovCommand() {
-		String llvmCovPath = CoverageSettings.getLlvmCovPath();
+		String llvmCovPath = CoveragePreferenceSettings.getLlvmCovPath();
 		if (llvmCovPath.isEmpty()) {
 			return DEFAULT_LLVM_COV;
 		}
@@ -56,39 +57,39 @@ public class CoverageSettingsManager {
 		}
 	}
 
+	public static String getLlvmProfdataCommand() {
+		String llvmProfdataPath = CoveragePreferenceSettings.getLlvmProfdataPath();
+		if (llvmProfdataPath.isEmpty()) {
+			return DEFAULT_LLVM_PROFDATA;
+		}
+		try {
+			Path resolvedPath = Paths.get(llvmProfdataPath).toAbsolutePath().normalize();
+			return resolvedPath.toString();
+		} catch (Exception e) {
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+					String.format(WARNING_INVALID_LLVM_PROFDATA_PATH, llvmProfdataPath), e));
+			return DEFAULT_LLVM_PROFDATA;
+		}
+	}
+
 	public static List<String> filterAnalysisScope(List<String> analysisScope, IProject project) {
 		if (analysisScope == null) {
 			return List.of();
 		}
 
-		List<String> includePatterns = parsePatterns(CoverageSettings.getIncludes());
-		List<String> excludePatterns = parsePatterns(CoverageSettings.getExcludes());
-		List<String> projectExcludePatterns = parsePatterns(getProjectExcludesSafe(project));
+		List<String> includePatterns = parsePatterns(CoveragePreferenceSettings.getIncludes());
+		List<String> excludePatterns = parsePatterns(CoveragePreferenceSettings.getExcludes());
 
-		return analysisScope.stream()
-				.filter(path -> isPathIncluded(path, includePatterns, excludePatterns, projectExcludePatterns))
+		return analysisScope.stream().filter(path -> isPathIncluded(path, includePatterns, excludePatterns))
 				.collect(Collectors.toList());
 	}
 
-	private static boolean isPathIncluded(String path, List<String> includePatterns, List<String> excludePatterns,
-			List<String> projectExcludePatterns) {
+	private static boolean isPathIncluded(String path, List<String> includePatterns, List<String> excludePatterns) {
 		boolean matchesInclude = includePatterns.isEmpty()
 				|| includePatterns.stream().anyMatch(pattern -> CoverageUtils.matchesPattern(path, pattern));
 		boolean notExcluded = excludePatterns.stream()
 				.noneMatch(pattern -> CoverageUtils.matchesPattern(path, pattern));
-		boolean notProjectExcluded = projectExcludePatterns.stream()
-				.noneMatch(pattern -> CoverageUtils.matchesPattern(path, pattern));
-		return matchesInclude && notExcluded && notProjectExcluded;
-	}
-
-	private static String getProjectExcludesSafe(IProject project) {
-		try {
-			return CoverageProjectSettings.getProjectExcludes(project);
-		} catch (Exception e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-					String.format(WARNING_PROJECT_EXCLUDES, project.getName()), e));
-			return "";
-		}
+		return matchesInclude && notExcluded;
 	}
 
 	private static List<String> parsePatterns(String patternString) {
