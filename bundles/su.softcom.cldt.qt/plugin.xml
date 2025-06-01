@@ -107,7 +107,7 @@
    <extension point="org.eclipse.ui.views">
     <view
         id="su.softcom.cldt.qt.ui.internal.views.QtImportConsoleView"
-        name="QtImport Console"
+        name="%QtConsole"
         class="su.softcom.cldt.qt.ui.internal.views.QtImportConsoleView"
         category="su.softcom.cldt.qt.ui.views">
     </view>

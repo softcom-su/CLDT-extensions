@@ -27,7 +27,7 @@ public class QtImportConsoleView extends ViewPart {
         container.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
         consoleText = new Text(container, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL | SWT.H_SCROLL | SWT.READ_ONLY);
         consoleText.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-        consoleText.setText("QtImport Console\n" + Messages.qtImportConsoleViewStartMessage + "\n");
+        consoleText.setText(Messages.qtImportConsoleViewStartMessage + "\n");
     }
 
     /**

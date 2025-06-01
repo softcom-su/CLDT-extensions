@@ -173,12 +173,12 @@ public class QtImportWizard extends Wizard implements IImportWizard {
             }
             if (rootDirectory == null || rootDirectory.isEmpty()) {
                 consoleView.logError(Messages.QtImportWizard_15);
-                showError("Please specify a valid root directory."); //$NON-NLS-1$
+                showError(Messages.QtImportWizard_141);
                 return false;
             }
             if (projectName == null || projectName.isEmpty()) {
                 consoleView.logError(Messages.QtImportWizard_17);
-                showError("Please specify a valid project name."); //$NON-NLS-1$
+                showError(Messages.QtImportWizard_142);
                 return false;
             }
             File rootDir = new File(rootDirectory);
@@ -193,71 +193,72 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                 showError(Messages.QtImportWizard_22);
                 return false;
             }
-            outputDir = new File(rootDir, "build_results"); //$NON-NLS-1$
-            cleanTemporaryFiles(outputDir);
+            outputDir = new File(rootDir, "build_results");
             if (!outputDir.exists() && !outputDir.mkdirs()) {
-                consoleView.logError(Messages.QtImportWizard_24 + outputDir.getAbsolutePath());
-                showError("Failed to create output directory: " + outputDir.getAbsolutePath()); //$NON-NLS-1$
+                consoleView.logError(Messages.QtImportWizard_143 + outputDir.getAbsolutePath());
+                showError(Messages.QtImportWizard_143 + outputDir.getAbsolutePath());
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
             String buildMigratorPath = findBuildMigratorPath();
             if (buildMigratorPath == null) {
                 consoleView.logError(Messages.QtImportWizard_26);
-                showError("Failed to find BuildMigrator."); //$NON-NLS-1$
+                showError(Messages.QtImportWizard_26);
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
             consoleView.logMessage(Messages.QtImportWizard_28);
-            if (!executeCommand(buildMigratorPath, "--commands", "build", "--source_dir", rootDir.getAbsolutePath(), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                    "--out_dir", outputDir.getAbsolutePath(), "--build_command", "qmake " + proFilePath, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                    "--build_command", "make -C " + outputDir.getAbsolutePath() + "/_build/", "--log_provider", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-                    "CONSOLE")) { //$NON-NLS-1$
+            // Process subdirectories for .pro and .pri files
+            processSubdirectories(rootDir, buildMigratorPath, outputDir);
+            // Process the main .pro file
+            if (!executeCommand(buildMigratorPath, "--commands", "build", "--source_dir", rootDir.getAbsolutePath(),
+                    "--out_dir", outputDir.getAbsolutePath(), "--build_command", "qmake -d " + proFilePath,
+                    "--log_provider", "CONSOLE")) {
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
-            File logFile = new File(outputDir, "build_command_2.log"); //$NON-NLS-1$
+            File logFile = new File(outputDir, "build_command_1.log");
             consoleView.logMessage(Messages.QtImportWizard_41);
-            if (!executeCommand(buildMigratorPath, "--commands", "parse", "--logs", logFile.getAbsolutePath(), "--log_type", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-                    "make", "--build_dirs", outputDir.getAbsolutePath(), "--working_dir", rootDir.getAbsolutePath(), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                    "--platform", "linux", "--out_dir", outputDir.getAbsolutePath())) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            if (!executeCommand(buildMigratorPath, "--commands", "parse", "--logs", logFile.getAbsolutePath(), "--log_type",
+                    "qmake", "--build_dirs", outputDir.getAbsolutePath(), "--working_dir", rootDir.getAbsolutePath(),
+                    "--platform", "linux", "--out_dir", outputDir.getAbsolutePath())) {
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
-            consoleView.logMessage("Запуск BuildMigrator для генерации CMakeLists.txt..."); //$NON-NLS-1$
-            if (!executeCommand(buildMigratorPath, "--commands", "optimize", "generate", "--generator", "cmake", "--out_dir", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            consoleView.logMessage(Messages.QtImportWizard_144);
+            if (!executeCommand(buildMigratorPath, "--commands", "optimize", "generate", "--generator", "cmake", "--out_dir",
                     outputDir.getAbsolutePath())) {
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
-            File cmakeFile = new File(outputDir, "CMakeLists.txt"); //$NON-NLS-1$
+            File cmakeFile = new File(outputDir, "CMakeLists.txt");
             if (!cmakeFile.exists()) {
                 consoleView.logError(Messages.QtImportWizard_60);
-                showError("CMakeLists.txt was not generated."); //$NON-NLS-1$
+                showError(Messages.QtImportWizard_60);
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
@@ -280,49 +281,58 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                     try {
                         backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                     } catch (IOException ex) {
-                        consoleView.logError("Failed to restore root directory: " + ex.getMessage());
+                        consoleView.logError(Messages.QtImportWizard_16 + ex.getMessage());
                     }
                     return false;
                 }
             }
-            File buildResultDir = new File(rootDir, "build_results"); //$NON-NLS-1$
+            File buildResultDir = new File(rootDir, "build_results");
             if (!rootDir.exists() || !rootDir.isDirectory()) {
                 consoleView.logError(Messages.QtImportWizard_66);
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException e) {
-                    consoleView.logError("Failed to restore root directory: " + e.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + e.getMessage());
                 }
                 return false;
             }
             Path projectPath = targetProject.getLocation().toFile().toPath();
             try {
                 consoleView.logMessage(Messages.QtImportWizard_67);
-                removeSourceFiles(buildResultDir, rootDir);
-                consoleView.logMessage(Messages.QtImportWizard_68);
-                copyBuildResultFiles(buildResultDir, projectPath);
-                consoleView.logMessage(Messages.QtImportWizard_69);
-                Files.walk(rootDir.toPath()).filter(path -> !path.startsWith(buildResultDir.toPath()))
-                        .forEach(sourcePath -> {
-                            try {
-                                Path relativePath = rootDir.toPath().relativize(sourcePath);
-                                Path targetPath = projectPath.resolve(relativePath);
-                                if (Files.isDirectory(sourcePath)) {
-                                    Files.createDirectories(targetPath);
-                                } else {
-                                    Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                                }
-                            } catch (IOException e) {
-                                consoleView.logError(Messages.QtImportWizard_70 + sourcePath + ": " + e.getMessage()); //$NON-NLS-2$
+                Path cmakeLists = buildResultDir.toPath().resolve("CMakeLists.txt");
+                if (Files.exists(cmakeLists)) {
+                    Files.copy(cmakeLists, rootDir.toPath().resolve("CMakeLists.txt"), StandardCopyOption.REPLACE_EXISTING);
+                    consoleView.logMessage(Messages.QtImportWizard_42 + rootDir.getAbsolutePath());
+                }
+                Path extensionCmake = buildResultDir.toPath().resolve("extensions.cmake");
+                if (Files.exists(extensionCmake)) {
+                    Files.copy(extensionCmake, rootDir.toPath().resolve("extensions.cmake"), StandardCopyOption.REPLACE_EXISTING);
+                    consoleView.logMessage(Messages.QtImportWizard_45 + rootDir.getAbsolutePath());
+                }
+                consoleView.logMessage(Messages.QtImportWizard_46);
+                Files.walk(rootDir.toPath()).forEach(sourcePath -> {
+                    try {
+                        Path relativePath = rootDir.toPath().relativize(sourcePath);
+                        Path targetPath = projectPath.resolve(relativePath);
+                        if (!sourcePath.toString().contains("build_results")) {
+                            if (Files.isDirectory(sourcePath)) {
+                                Files.createDirectories(targetPath);
+                            } else {
+                                Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                                consoleView.logMessage(Messages.QtImportWizard_48 + sourcePath + Messages.QtImportWizard_49 + targetPath);
                             }
-                        });
+                        }
+                    } catch (IOException e) {
+                        consoleView.logError(Messages.QtImportWizard_70 + sourcePath + ": " + e.getMessage());
+                    }
+                });
             } catch (IOException e) {
                 consoleView.logError(Messages.QtImportWizard_72 + e.getMessage());
                 e.printStackTrace();
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException ex) {
-                    consoleView.logError("Failed to restore root directory: " + ex.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + ex.getMessage());
                 }
                 return false;
             }
@@ -347,7 +357,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(rootDirectory));
                 } catch (IOException ex) {
-                    consoleView.logError("Failed to restore root directory: " + ex.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + ex.getMessage());
                 }
                 return false;
             }
@@ -367,7 +377,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                 try {
                     backupManager.restoreRootDirAfterImport(Paths.get(page.getQmakeRootDirectory()));
                 } catch (IOException ex) {
-                    consoleView.logError("Failed to restore root directory: " + ex.getMessage());
+                    consoleView.logError(Messages.QtImportWizard_16 + ex.getMessage());
                 }
             }
             return false;
@@ -382,14 +392,14 @@ public class QtImportWizard extends Wizard implements IImportWizard {
         CMakeRoot cmakeTree;
         StringBuilder cmakeListsContentBuilder = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(project.getFile("CMakeLists.txt").getContents()))) { //$NON-NLS-1$
+                new InputStreamReader(project.getFile("CMakeLists.txt").getContents()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 cmakeListsContentBuilder.append(line);
             }
         } catch (Exception e) {
             consoleView.logError(Messages.QtImportWizard_82 + e.getMessage());
-            Platform.getLog(getClass()).warn("Unable to get the root CMakeLists.txt content", e); //$NON-NLS-1$
+            Platform.getLog(getClass()).warn(Messages.QtImportWizard_145, e);
             return null;
         }
         try {
@@ -397,7 +407,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
             cmakeTree = parser.parse();
         } catch (IOException | UnexpectedTokenException | CoreException e) {
             consoleView.logError(Messages.QtImportWizard_84 + e.getMessage());
-            Platform.getLog(getClass()).warn("Unable to parse the root CMakeLists.txt", e); //$NON-NLS-1$
+            Platform.getLog(getClass()).warn(Messages.QtImportWizard_146, e);
             return null;
         }
         return cmakeTree;
@@ -412,134 +422,41 @@ public class QtImportWizard extends Wizard implements IImportWizard {
         cmakeProject.setBuildFolder(page.getBuildFolder().getName());
         Map<AutoSetting, Boolean> autoSettings = new EnumMap<>(AutoSetting.class);
         Map<AutoSetting, CommandNode> autoSettingNodes = new EnumMap<>(AutoSetting.class);
-        cmakeTree.accept(new QtAutoSettingsVisitor(autoSettingNodes));
+            cmakeTree.accept(new QtAutoSettingsVisitor(autoSettingNodes));
         for (var setting : Arrays.asList(AutoSetting.values())) {
-            autoSettings.put(setting, autoSettingNodes.containsKey(setting));
-        }
-        qtProject.setAutoSettingsAndValues(autoSettings);
-    }
-
-    /**
-     * Removes matching files and directories from the root directory.
-     */
-    private void removeSourceFiles(File buildResultDir, File rootDir) {
-        Path sourceDir = buildResultDir.toPath().resolve("source"); //$NON-NLS-1$
-        if (Files.exists(sourceDir) && Files.isDirectory(sourceDir)) {
-            try {
-                Files.walk(sourceDir).forEach(sourcePath -> {
-                    try {
-                        if (sourcePath.equals(sourceDir)) {
-                            return;
-                        }
-                        Path relativePath = sourceDir.relativize(sourcePath);
-                        Path targetPath = rootDir.toPath().resolve(relativePath);
-                        if (Files.exists(targetPath)) {
-                            if (Files.isDirectory(targetPath)) {
-                                consoleView.logMessage(Messages.QtImportWizard_87 + targetPath);
-                                try {
-                                    deleteDirectory(targetPath);
-                                } catch (IOException e) {
-                                    consoleView.logError(Messages.QtImportWizard_88 + targetPath + ": " + e.getMessage()); //$NON-NLS-2$
-                                }
-                            } else {
-                                consoleView.logMessage(Messages.QtImportWizard_90 + targetPath);
-                                Files.delete(targetPath);
-                            }
-                        }
-                    } catch (IOException e) {
-                        consoleView.logError(Messages.QtImportWizard_91 + sourcePath + ": " + e.getMessage()); //$NON-NLS-2$
-                    }
-                });
-            } catch (IOException e) {
-                consoleView.logError(Messages.QtImportWizard_93 + sourceDir + ": " + e.getMessage()); //$NON-NLS-2$
+                autoSettings.put(setting, autoSettingNodes.containsKey(setting));
             }
-        }
-    }
-
-    /**
-     * Copies build result files to the project directory.
-     */
-    private void copyBuildResultFiles(File buildResultDir, Path projectPath) throws IOException {
-        Path cmakeLists = buildResultDir.toPath().resolve("CMakeLists.txt"); //$NON-NLS-1$
-        if (Files.exists(cmakeLists)) {
-            Files.copy(cmakeLists, projectPath.resolve("CMakeLists.txt"), StandardCopyOption.REPLACE_EXISTING); //$NON-NLS-1$
-            consoleView.logMessage(Messages.QtImportWizard_97);
-        }
-        Path extensionCmake = buildResultDir.toPath().resolve("extensions.cmake"); //$NON-NLS-1$
-        if (Files.exists(extensionCmake)) {
-            Files.copy(extensionCmake, projectPath.resolve("extensions.cmake"), StandardCopyOption.REPLACE_EXISTING); //$NON-NLS-1$
-            consoleView.logMessage(Messages.QtImportWizard_100);
-        }
-        Path sourceDir = buildResultDir.toPath().resolve("source"); //$NON-NLS-1$
-        if (Files.exists(sourceDir)) {
-            Files.walk(sourceDir).forEach(sourcePath -> {
-                try {
-                    Path relativePath = sourceDir.relativize(sourcePath);
-                    Path targetPath = projectPath.resolve("source").resolve(relativePath); //$NON-NLS-1$
-                    if (Files.isDirectory(sourcePath)) {
-                        Files.createDirectories(targetPath);
-                    } else {
-                        Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                        consoleView.logMessage(Messages.QtImportWizard_103 + relativePath + Messages.QtImportWizard_16);
-                    }
-                } catch (IOException e) {
-                    consoleView.logError(Messages.QtImportWizard_105 + sourcePath + ": " + e.getMessage()); //$NON-NLS-2$
-                }
-            });
-        }
+            qtProject.setAutoSettingsAndValues(autoSettings);
     }
 
     /**
      * Deletes a directory and its contents recursively.
      */
     private void deleteDirectory(Path directory) throws IOException {
-        Files.walk(directory).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-    }
-
-    /**
-     * Deletes the contents of the specified directory, excluding specified paths.
-     * 
-     * @param directory The directory to clean.
-     * @param exclusions Paths to exclude from deletion.
-     * @throws IOException If an error occurs during deletion.
-     */
-    private void deleteDirectoryWithExclusions(File directory, Path... exclusions) throws IOException {
-        if (!directory.exists()) {
+        if (!Files.exists(directory)) {
+            consoleView.logMessage(Messages.QtImportWizard_54 + directory);
             return;
         }
-        try {
-            Files.walk(directory.toPath())
-                 .filter(path -> Arrays.stream(exclusions).noneMatch(exclusion -> path.startsWith(exclusion)))
-                 .sorted(Comparator.reverseOrder())
-                 .forEach(path -> {
-                     try {
-                         if (!path.toFile().equals(directory)) {
-                             Files.delete(path);
-                             consoleView.logMessage("Deleted: " + path);
-                         }
-                     } catch (IOException e) {
-                         consoleView.logError("Failed to delete " + path + ": " + e.getMessage());
-                     }
-                 });
-            Path prebuildPath = directory.toPath().resolve("prebuild");
-            consoleView.logMessage("Cleaned up temporary directory: " + directory.getAbsolutePath() +
-                                  (Files.exists(prebuildPath) ? " (preserved prebuild folder)" : ""));
-        } catch (IOException e) {
-            consoleView.logError("Failed to clean up temporary directory " + directory.getAbsolutePath() + ": " + e.getMessage());
-            throw e;
-        }
-    }
-
-    /**
-     * Cleans up temporary files in the build result directory, preserving the prebuild folder if it exists.
-     */
-    private void cleanTemporaryFiles(File buildResultDir) {
-        if (buildResultDir.exists()) {
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                Path prebuildPath = buildResultDir.toPath().resolve("prebuild");
-                deleteDirectoryWithExclusions(buildResultDir, prebuildPath);
-            } catch (IOException e) {
-                consoleView.logError("Failed to clean up temporary directory " + buildResultDir.getAbsolutePath() + ": " + e.getMessage());
+                Files.walk(directory)
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                            consoleView.logMessage(Messages.QtImportWizard_55 + path);
+                        } catch (IOException e) {
+                            consoleView.logError(Messages.QtImportWizard_56 + path + ": " + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                    });
+                return; // Exit if deletion succeeds
+            } catch (RuntimeException e) {
+                consoleView.logError(Messages.QtImportWizard_58 + attempt + Messages.QtImportWizard_59 + e.getCause().getMessage());
+                if (attempt == maxRetries) {
+                    throw new IOException(Messages.QtImportWizard_61 + maxRetries + Messages.QtImportWizard_65, e.getCause());
+                }
             }
         }
     }
@@ -549,8 +466,8 @@ public class QtImportWizard extends Wizard implements IImportWizard {
      */
     private String findBuildMigratorPath() {
         try {
-            Bundle bundle = Platform.getBundle("su.softcom.cldt.qt"); //$NON-NLS-1$
-            URL url = FileLocator.toFileURL(bundle.getEntry("/BuildMigrator/bin/build_migrator")); //$NON-NLS-1$
+            Bundle bundle = Platform.getBundle("su.softcom.cldt.qt");
+            URL url = FileLocator.toFileURL(bundle.getEntry("/BuildMigrator/bin/build_migrator"));
             String pluginPath = url.getPath();
             consoleView.logMessage(Messages.QtImportWizard_109 + pluginPath);
             return pluginPath;
@@ -562,12 +479,103 @@ public class QtImportWizard extends Wizard implements IImportWizard {
     }
 
     /**
+     * Processes subdirectories for .pro and .pri files, running BuildMigrator and handling CMakeLists.txt.
+     */
+    private void processSubdirectories(File rootDir, String buildMigratorPath, File outputDir) {
+        try {
+            String mainProFilePath = page.getQmakeProFilePath();
+            Path mainProFile = mainProFilePath != null ? Paths.get(mainProFilePath) : null;
+            Files.walk(rootDir.toPath())
+                .filter(Files::isDirectory)
+                .forEach(dir -> {
+                    try {
+                        Files.list(dir).filter(path -> {
+                            String fileName = path.getFileName().toString();
+                            // Exclude the main .pro file
+                            return (fileName.endsWith(".pro") || fileName.endsWith(".pri"))
+                                    && (mainProFile == null || !path.equals(mainProFile));
+                        }).forEach(file -> {
+                            try {
+                                 String fileName = file.getFileName().toString();
+                                 boolean isPriFile = fileName.endsWith(".pri");
+                                 Path proFile = file;
+                                 if (isPriFile) {
+                                     String proFileName = fileName.replace(".pri", ".pro");
+                                     proFile = dir.resolve(proFileName);
+                                     Files.copy(file, proFile, StandardCopyOption.REPLACE_EXISTING);
+                                     consoleView.logMessage(Messages.QtImportWizard_85 + proFile);
+                                 }
+                                 File subOutputDir = new File(outputDir, dir.toFile().getName());
+                                 if (!subOutputDir.exists() && !subOutputDir.mkdirs()) {
+                                     consoleView.logError(Messages.QtImportWizard_86 + subOutputDir.getAbsolutePath());
+                                     return;
+                                 }
+                                 consoleView.logMessage(Messages.QtImportWizard_138 + fileName + Messages.QtImportWizard_139 + dir);
+                                 if (!executeCommand(buildMigratorPath, "--commands", "build", "--source_dir", dir.toFile().getAbsolutePath(),
+                                         "--out_dir", subOutputDir.getAbsolutePath(), "--build_command", "qmake -d " + proFile,
+                                         "--log_provider", "CONSOLE")) {
+                                     consoleView.logError(Messages.QtImportWizard_97 + proFile);
+                                     if (isPriFile) {
+                                         Files.deleteIfExists(proFile);
+                                     }
+                                     return;
+                                 }
+                                 File subLogFile = new File(subOutputDir, "build_command_1.log");
+                                 if (!executeCommand(buildMigratorPath, "--commands", "parse", "--logs", subLogFile.getAbsolutePath(),
+                                         "--log_type", "qmake", "--build_dirs", subOutputDir.getAbsolutePath(),
+                                         "--working_dir", dir.toFile().getAbsolutePath(), "--platform", "linux",
+                                         "--out_dir", subOutputDir.getAbsolutePath())) {
+                                     consoleView.logError(Messages.QtImportWizard_112 + proFile);
+                                     if (isPriFile) {
+                                         Files.deleteIfExists(proFile);
+                                     }
+                                     return;
+                                 }
+                                 if (!executeCommand(buildMigratorPath, "--commands", "optimize", "generate", "--generator", "cmake",
+                                         "--out_dir", subOutputDir.getAbsolutePath())) {
+                                     consoleView.logError(Messages.QtImportWizard_121 + proFile);
+                                     if (isPriFile) {
+                                         Files.deleteIfExists(proFile);
+                                     }
+                                     return;
+                                 }
+                                 Path cmakeLists = subOutputDir.toPath().resolve("CMakeLists.txt");
+                                if (Files.exists(cmakeLists)) {
+                                    String targetCmakeName = isPriFile ? fileName.replace(".pri", ".cmake") : "CMakeLists.txt";
+                                    Path targetCmakePath = dir.resolve(targetCmakeName);
+                                    Files.copy(cmakeLists, targetCmakePath, StandardCopyOption.REPLACE_EXISTING);
+                                    consoleView.logMessage(Messages.QtImportWizard_126 + targetCmakePath);
+                                }
+                                Path extensionsCmake = subOutputDir.toPath().resolve("extensions.cmake");
+                                if (Files.exists(extensionsCmake)) {
+                                    Path targetExtensionsPath = dir.resolve("extensions.cmake");
+                                    Files.copy(extensionsCmake, targetExtensionsPath, StandardCopyOption.REPLACE_EXISTING);
+                                    consoleView.logMessage(Messages.QtImportWizard_129 + targetExtensionsPath);
+                                }
+                                 if (isPriFile) {
+                                     Files.deleteIfExists(proFile);
+                                     consoleView.logMessage(Messages.QtImportWizard_130 + proFile);
+                                 }
+                             } catch (IOException e) {
+                                 consoleView.logError(Messages.QtImportWizard_131 + file + ": " + e.getMessage());
+                             }
+                         });
+                     } catch (IOException e) {
+                         consoleView.logError(Messages.QtImportWizard_133 + dir + ": " + e.getMessage());
+                     }
+                 });
+        } catch (IOException e) {
+            consoleView.logError(Messages.QtImportWizard_135 + e.getMessage());
+        }
+    }
+
+    /**
      * Executes a command and logs its output.
      */
     private boolean executeCommand(String... command) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(command);
-            consoleView.logMessage(Messages.QtImportWizard_111 + String.join(" ", command)); //$NON-NLS-2$
+            consoleView.logMessage(Messages.QtImportWizard_111 + String.join(" ", command));
             Process process = processBuilder.start();
 
             Thread stdoutThread = new Thread(() -> {
@@ -580,7 +588,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                         });
                     }
                 } catch (IOException e) {
-                    String errorMessage = "Error reading stdout: " + e.getMessage();
+                    String errorMessage = Messages.QtImportWizard_147 + e.getMessage();
                     Display.getDefault().asyncExec(() -> {
                         consoleView.logError(errorMessage);
                     });
@@ -591,7 +599,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                 try (BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
                     String line;
                     while ((line = stderrReader.readLine()) != null) {
-                        String finalLine = line; 
+                        String finalLine = line;
                         Display.getDefault().asyncExec(() -> {
                             if (finalLine.contains("INFO")) {
                                 consoleView.logMessage(finalLine);
@@ -605,7 +613,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                         });
                     }
                 } catch (IOException e) {
-                    String errorMessage = "Error reading stderr: " + e.getMessage();
+                    String errorMessage = Messages.QtImportWizard_114 + e.getMessage();
                     Display.getDefault().asyncExec(() -> {
                         consoleView.logError(errorMessage);
                     });
@@ -632,7 +640,7 @@ public class QtImportWizard extends Wizard implements IImportWizard {
                 return true;
             }
         } catch (IOException | InterruptedException e) {
-            String errorMessage = "Failed to execute command: " + String.join(" ", command) + ": " + e.getMessage();
+            String errorMessage = Messages.QtImportWizard_115 + String.join(" ", command) + ": " + e.getMessage();
             Display.getDefault().asyncExec(() -> {
                 consoleView.logError(errorMessage);
             });
@@ -644,6 +652,6 @@ public class QtImportWizard extends Wizard implements IImportWizard {
      * Displays an error dialog.
      */
     private void showError(String message) {
-        MessageDialog.openError(getShell(), "Error", message); //$NON-NLS-1$
+        MessageDialog.openError(getShell(), Messages.QtImportWizard_0, message);
     }
 }
