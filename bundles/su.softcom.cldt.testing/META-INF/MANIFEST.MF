@@ -3,12 +3,17 @@ Bundle-ManifestVersion: 2
 Bundle-Name: %Bundle-Name
 Bundle-SymbolicName: su.softcom.cldt.testing;singleton:=true
 Bundle-Version: 1.0.0.qualifier
+Bundle-Activator: su.softcom.cldt.testing.core.Activator
+Bundle-ActivationPolicy: lazy
 Require-Bundle: org.eclipse.ui;bundle-version="3.202.0",
  org.eclipse.debug.core;bundle-version="3.20.100",
  org.eclipse.debug.ui;bundle-version="3.17.200",
  org.eclipse.core.runtime;bundle-version="3.26.100",
  org.eclipse.jface;bundle-version="3.15.100",
+ org.eclipse.jface.text;bundle-version="3.23.0",
  org.eclipse.swt;bundle-version="3.113.0",
+ org.eclipse.core.resources;bundle-version="3.13.0",
+ org.eclipse.ui.editors;bundle-version="3.11.0",
  su.softcom.cldt.core;bundle-version="0.1.0",
  su.softcom.cldt.ui;bundle-version="0.1.0"
 Automatic-Module-Name: su.softcom.cldt.testing

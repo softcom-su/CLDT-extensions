@@ -8,35 +8,51 @@ import java.util.List;
 import java.util.Map;
 
 public class CommandExecutor {
+	private static final String ERROR_PREFIX = "ERROR: ";
+
 	public int executeCommand(List<String> command, Map<String, String> env, String outputFile, StringBuilder output)
 			throws IOException, InterruptedException {
 		ProcessBuilder pb = new ProcessBuilder(command);
-		if (env != null) {
-			pb.environment().putAll(env);
-		}
-		if (outputFile != null) {
-			pb.redirectOutput(new File(outputFile));
-		}
+		configureEnvironment(pb, env);
+		configureOutput(pb, outputFile);
 		Process process = pb.start();
-		if (output != null) {
-			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					output.append(line).append("\n");
-				}
-			}
-			try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-				String line;
-				while ((line = errorReader.readLine()) != null) {
-					output.append("ERROR: ").append(line).append("\n");
-				}
-			}
-		}
+		captureOutput(process, output);
 		return process.waitFor();
 	}
 
 	public void executeCommand(List<String> command, Map<String, String> env, String outputFile)
 			throws IOException, InterruptedException {
 		executeCommand(command, env, outputFile, null);
+	}
+
+	private void configureEnvironment(ProcessBuilder pb, Map<String, String> env) {
+		if (env != null) {
+			pb.environment().putAll(env);
+		}
+	}
+
+	private void configureOutput(ProcessBuilder pb, String outputFile) {
+		if (outputFile != null) {
+			pb.redirectOutput(new File(outputFile));
+		}
+	}
+
+	private void captureOutput(Process process, StringBuilder output) throws IOException {
+		if (output == null) {
+			return;
+		}
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+			appendLines(reader, output, "");
+		}
+		try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+			appendLines(errorReader, output, ERROR_PREFIX);
+		}
+	}
+
+	private void appendLines(BufferedReader reader, StringBuilder output, String prefix) throws IOException {
+		String line;
+		while ((line = reader.readLine()) != null) {
+			output.append(prefix).append(line).append("\n");
+		}
 	}
 }
