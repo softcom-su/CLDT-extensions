@@ -68,31 +68,32 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 	}
 
 	private void createSessionManagementGroup(Composite parent) {
-		Group sessionGroup = createGroup(parent, "Session Management", 2);
+		Group sessionGroup = createGroup(parent, Messages.CoveragePreferencePage_15, 2);
 		IPreferenceStore store = getPreferenceStore();
 
-		openViewAutoCheck = createCheckbox(sessionGroup, "Open Coverage View Automatically",
+		openViewAutoCheck = createCheckbox(sessionGroup, Messages.CoveragePreferencePage_16,
 				store.getBoolean(OPEN_VIEW_AUTO));
-		generateReportCheck = createCheckbox(sessionGroup, "Generate Report After Build",
+		generateReportCheck = createCheckbox(sessionGroup, Messages.CoveragePreferencePage_17,
 				store.getBoolean(GENERATE_REPORT));
-		cleanProfileDataCheck = createCheckbox(sessionGroup, "Clean Old Profile Data",
+		cleanProfileDataCheck = createCheckbox(sessionGroup, Messages.CoveragePreferencePage_18,
 				store.getBoolean(CLEAN_PROFILE_DATA));
 	}
 
 	private void createCoverageScopeGroup(Composite parent) {
-		Group scopeGroup = createGroup(parent, "Coverage Scope", 2);
+		Group scopeGroup = createGroup(parent, Messages.CoveragePreferencePage_19, 2);
 		IPreferenceStore store = getPreferenceStore();
 
-		includesText = createLabeledText(scopeGroup, "Includes:", store.getString(INCLUDES));
-		excludesText = createLabeledText(scopeGroup, "Excludes:", store.getString(EXCLUDES));
+		includesText = createLabeledText(scopeGroup, Messages.CoveragePreferencePage_20, store.getString(INCLUDES));
+		excludesText = createLabeledText(scopeGroup, Messages.CoveragePreferencePage_21, store.getString(EXCLUDES));
 	}
 
 	private void createGeneralGroup(Composite parent) {
-		Group generalGroup = createGroup(parent, "General", 3);
+		Group generalGroup = createGroup(parent, Messages.CoveragePreferencePage_22, 3);
 		IPreferenceStore store = getPreferenceStore();
 
-		llvmCovPathText = createLabeledText(generalGroup, "LLVM-cov Path:", store.getString(LLVM_COV_PATH));
-		createBrowseButton(generalGroup, llvmCovPathText, "Select llvm-cov executable");
+		llvmCovPathText = createLabeledText(generalGroup, Messages.CoveragePreferencePage_23,
+				store.getString(LLVM_COV_PATH));
+		createBrowseButton(generalGroup, llvmCovPathText, Messages.CoveragePreferencePage_24);
 	}
 
 	private Group createGroup(Composite parent, String text, int columns) {
@@ -122,7 +123,7 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 
 	private void createBrowseButton(Group parent, Text targetText, String dialogTitle) {
 		Button browseButton = new Button(parent, SWT.PUSH);
-		browseButton.setText("Browse...");
+		browseButton.setText(Messages.CoveragePreferencePage_25);
 		browseButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {

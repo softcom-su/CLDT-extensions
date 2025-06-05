@@ -12,7 +12,7 @@
     <extension point="org.eclipse.ui.propertyPages">
         <page
             id="su.softcom.cldt.testing.coveragePropertyPage"
-            name="Code Coverage"
+            name="%page.name"
             class="su.softcom.cldt.testing.ui.CoveragePropertyPage">
             <enabledWhen>
                 <adapt type="org.eclipse.core.resources.IProject"/>

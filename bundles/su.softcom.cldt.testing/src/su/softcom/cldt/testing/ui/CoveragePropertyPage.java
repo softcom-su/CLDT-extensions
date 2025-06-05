@@ -26,6 +26,8 @@ public class CoveragePropertyPage extends PropertyPage {
 	private static final String WARNING_READ_DIR = "Failed to read coverage data directory in UI, using default: %s";
 	private static final String WARNING_READ_EXCLUDES = "Failed to read project excludes in UI, using empty string";
 	private static final String ERROR_SAVE_PROPERTIES = "Failed to save project properties: %s";
+	private static final String ERROR_SAVE_PROPERTIES_UI = "Failed to save project properties in UI";
+
 	private Text coverageDataDirText;
 	private Text projectExcludesText;
 	private IProject project;
@@ -46,11 +48,11 @@ public class CoveragePropertyPage extends PropertyPage {
 	}
 
 	private void createProfileDataGroup(Composite parent) {
-		Group profileGroup = createGroup(parent, "Profile Data", 3);
+		Group profileGroup = createGroup(parent, Messages.CoveragePropertyPage_4, 3);
 		String coverageDataDir = initializeCoverageDataDir();
-		coverageDataDirText = createLabeledText(profileGroup, "Coverage Data Directory:", coverageDataDir);
-		coverageDataDirText.setToolTipText("Relative path to directory for coverage data (e.g., build, custom_build)");
-		createBrowseButton(profileGroup, "Select Coverage Data Directory");
+		coverageDataDirText = createLabeledText(profileGroup, Messages.CoveragePropertyPage_5, coverageDataDir);
+		coverageDataDirText.setToolTipText(Messages.CoveragePropertyPage_6);
+		createBrowseButton(profileGroup, Messages.CoveragePropertyPage_7);
 	}
 
 	private String initializeCoverageDataDir() {
@@ -68,11 +70,10 @@ public class CoveragePropertyPage extends PropertyPage {
 	}
 
 	private void createCoverageScopeGroup(Composite parent) {
-		Group scopeGroup = createGroup(parent, "Coverage Scope", 2);
+		Group scopeGroup = createGroup(parent, Messages.CoveragePropertyPage_8, 2);
 		String projectExcludes = initializeProjectExcludes();
-		projectExcludesText = createLabeledText(scopeGroup, "Project-Specific Excludes:", projectExcludes);
-		projectExcludesText
-				.setToolTipText("Semicolon-separated patterns to exclude from coverage (e.g., experiments/*;temp/*)");
+		projectExcludesText = createLabeledText(scopeGroup, Messages.CoveragePropertyPage_9, projectExcludes);
+		projectExcludesText.setToolTipText(Messages.CoveragePropertyPage_10);
 	}
 
 	private String initializeProjectExcludes() {
@@ -80,7 +81,7 @@ public class CoveragePropertyPage extends PropertyPage {
 			return CoverageProjectSettings.getProjectExcludes(project);
 		} catch (CoreException e) {
 			Activator.getDefault().getLog().log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_READ_EXCLUDES, e));
-			return "";
+			return ""; //$NON-NLS-1$
 		}
 	}
 
@@ -103,7 +104,7 @@ public class CoveragePropertyPage extends PropertyPage {
 
 	private void createBrowseButton(Group parent, String dialogTitle) {
 		Button browseButton = new Button(parent, SWT.PUSH);
-		browseButton.setText("Browse...");
+		browseButton.setText(Messages.CoveragePropertyPage_12);
 		browseButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -139,8 +140,7 @@ public class CoveragePropertyPage extends PropertyPage {
 				return false;
 			}
 		} catch (CoreException e) {
-			Activator.getDefault().getLog()
-					.log(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to save project properties in UI", e));
+			Activator.getDefault().getLog().log(new Status(IStatus.ERROR, PLUGIN_ID, ERROR_SAVE_PROPERTIES_UI, e));
 			setErrorMessage(String.format(ERROR_SAVE_PROPERTIES, e.getMessage()));
 			return false;
 		}

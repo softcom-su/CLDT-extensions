@@ -4,13 +4,25 @@ import org.eclipse.osgi.util.NLS;
 
 public class Messages extends NLS {
 	private static final String BUNDLE_NAME = Messages.class.getPackageName() + ".messages"; //$NON-NLS-1$
-	public static String CoveragePreferencePage_0;
-	public static String CoveragePreferencePage_1;
-	public static String CoveragePreferencePage_2;
-	public static String CoveragePreferencePage_3;
-	public static String CoveragePreferencePage_4;
-	public static String CoveragePreferencePage_5;
-	public static String CoveragePreferencePage_6;
+	public static String CoveragePreferencePage_15;
+	public static String CoveragePreferencePage_16;
+	public static String CoveragePreferencePage_17;
+	public static String CoveragePreferencePage_18;
+	public static String CoveragePreferencePage_19;
+	public static String CoveragePreferencePage_20;
+	public static String CoveragePreferencePage_21;
+	public static String CoveragePreferencePage_22;
+	public static String CoveragePreferencePage_23;
+	public static String CoveragePreferencePage_24;
+	public static String CoveragePreferencePage_25;
+	public static String CoveragePropertyPage_10;
+	public static String CoveragePropertyPage_12;
+	public static String CoveragePropertyPage_4;
+	public static String CoveragePropertyPage_5;
+	public static String CoveragePropertyPage_6;
+	public static String CoveragePropertyPage_7;
+	public static String CoveragePropertyPage_8;
+	public static String CoveragePropertyPage_9;
 	public static String CoverageResultView_1;
 	public static String CoverageResultView_2;
 	public static String CoverageResultView_3;
