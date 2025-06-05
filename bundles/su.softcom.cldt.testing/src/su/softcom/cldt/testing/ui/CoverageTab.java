@@ -25,6 +25,8 @@ import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerComparator;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -34,6 +36,7 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
@@ -45,12 +48,13 @@ import su.softcom.cldt.ui.dialogs.ProjectSelectionDialog;
 
 public class CoverageTab extends AbstractLaunchConfigurationTab {
 	private static final Logger LOGGER = Logger.getLogger(CoverageTab.class.getName());
-	private static final String PROJECT_NAME_KEY = "projectName";
-	private static final String TARGET_NAME_KEY = "targetName";
-	private static final String ANALYSIS_SCOPE_KEY = "analysisScope";
+	private static final String PROJECT_NAME_KEY = "projectName"; //$NON-NLS-1$
+	private static final String TARGET_NAME_KEY = "targetName"; //$NON-NLS-1$
+	private static final String ANALYSIS_SCOPE_KEY = "analysisScope"; //$NON-NLS-1$
 	private static final Set<String> EXCLUDED_FILES_AND_FOLDERS = new HashSet<>(
-			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md"));
-	private static final Set<String> ALLOWED_EXTENSIONS = Set.of("cpp", "h", "c", "hpp");
+			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+	private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList("c", "h", "cpp", "hpp", "cc", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+			"cxx", "hh", "hxx", "C", "inl", "tcc", "c++", "ipp", "cu", "cppm")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$
 
 	private Text projectText;
 	private ComboViewer targetComboViewer;
@@ -91,10 +95,27 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		Label fileLabel = new Label(filesGroup, SWT.NONE);
 		fileLabel.setText(Messages.CoverageTab_11);
 		fileLabel.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
-		tableViewer = CheckboxTableViewer.newCheckList(filesGroup, SWT.BORDER);
-		tableViewer.getTable().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		tableViewer = CheckboxTableViewer.newCheckList(filesGroup, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL);
+		Table table = tableViewer.getTable();
+		GridData gridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData.heightHint = 200;
+		gridData.widthHint = 400;
+		table.setLayoutData(gridData);
 		tableViewer.setContentProvider(ArrayContentProvider.getInstance());
+		tableViewer.setComparator(new ViewerComparator() {
+			@Override
+			public int compare(Viewer viewer, Object e1, Object e2) {
+				return e1.toString().compareToIgnoreCase(e2.toString());
+			}
+		});
 		tableViewer.addCheckStateListener(event -> updateLaunchConfigurationDialog());
+		Button selectAllButton = new Button(filesGroup, SWT.PUSH);
+		selectAllButton.setText(Messages.CoverageTab_33);
+		selectAllButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+		selectAllButton.addSelectionListener(widgetSelectedAdapter(e -> {
+			tableViewer.setAllChecked(true);
+			updateLaunchConfigurationDialog();
+		}));
 	}
 
 	private Group createGroup(Composite parent, String text, int columns) {
@@ -163,12 +184,12 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 			List<String> displayFiles = files.stream().map(file -> CoverageUtils.removeFirstSegment(file, 1)).toList();
 			tableViewer.setInput(displayFiles);
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error populating file list", e);
+			LOGGER.log(Level.SEVERE, "Error populating file list", e); //$NON-NLS-1$
 		}
 	}
 
 	private void collectFiles(IResource resource, List<String> files) throws CoreException {
-		if (resource.getName().startsWith(".") || EXCLUDED_FILES_AND_FOLDERS.contains(resource.getName())) {
+		if (resource.getName().startsWith(".") || EXCLUDED_FILES_AND_FOLDERS.contains(resource.getName())) { //$NON-NLS-1$
 			return;
 		}
 		if (resource instanceof IFile file) {
@@ -190,7 +211,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 	@Override
 	public void setDefaults(ILaunchConfigurationWorkingCopy configuration) {
 		configuration.setAttribute(PROJECT_NAME_KEY, getCurrentProject());
-		configuration.setAttribute(TARGET_NAME_KEY, "");
+		configuration.setAttribute(TARGET_NAME_KEY, ""); //$NON-NLS-1$
 		configuration.setAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 	}
 
@@ -200,12 +221,12 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 			String projectName = configuration.getAttribute(PROJECT_NAME_KEY, getCurrentProject());
 			projectText.setText(projectName);
 			updateTargets();
-			String targetName = configuration.getAttribute(TARGET_NAME_KEY, "");
+			String targetName = configuration.getAttribute(TARGET_NAME_KEY, ""); //$NON-NLS-1$
 			targetCombo.setText(targetName);
 			List<String> savedScope = configuration.getAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 			tableViewer.setCheckedElements(savedScope.toArray());
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e);
+			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e); //$NON-NLS-1$
 		}
 	}
 
@@ -228,7 +249,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 	public static String getCurrentProject() {
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
 		if (window == null)
-			return "";
+			return ""; //$NON-NLS-1$
 		ISelection selection = window.getSelectionService().getSelection();
 		if (selection instanceof IStructuredSelection structuredSelection) {
 			Object element = structuredSelection.getFirstElement();
@@ -239,7 +260,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				}
 			}
 		}
-		return "";
+		return ""; //$NON-NLS-1$
 	}
 
 	@Override

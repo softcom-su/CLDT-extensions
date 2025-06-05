@@ -72,15 +72,15 @@
             superType="org.eclipse.ui.workbench.texteditor.text">
         </annotationType>
         <annotationType
-            name="su.softcom.cldt.testing.coverage.covered.function"
+            name="su.softcom.cldt.testing.coverage.covered.method"
             superType="org.eclipse.ui.workbench.texteditor.text">
         </annotationType>
         <annotationType
-            name="su.softcom.cldt.testing.coverage.not_covered.function"
+            name="su.softcom.cldt.testing.coverage.not_covered.method"
             superType="org.eclipse.ui.workbench.texteditor.text">
         </annotationType>
         <annotationType
-            name="su.softcom.cldt.testing.coverage.partially_covered.function"
+            name="su.softcom.cldt.testing.coverage.partially_covered.method"
             superType="org.eclipse.ui.workbench.texteditor.text">
         </annotationType>
     </extension>
@@ -165,8 +165,8 @@
             textStylePreferenceValue="BOX">
         </specification>
         <specification
-            annotationType="su.softcom.cldt.testing.coverage.covered.function"
-            label="Covered Function"
+            annotationType="su.softcom.cldt.testing.coverage.covered.method"
+            label="Covered Method"
             textPreferenceKey="coverage.covered.text"
             textPreferenceValue="true"
             highlightPreferenceKey="coverage.covered.highlight"
@@ -178,8 +178,8 @@
             textStylePreferenceValue="BOX">
         </specification>
         <specification
-            annotationType="su.softcom.cldt.testing.coverage.not_covered.function"
-            label="Not Covered Function"
+            annotationType="su.softcom.cldt.testing.coverage.not_covered.method"
+            label="Not Covered Method"
             textPreferenceKey="coverage.not_covered.text"
             textPreferenceValue="true"
             highlightPreferenceKey="coverage.not_covered.highlight"
@@ -191,8 +191,8 @@
             textStylePreferenceValue="BOX">
         </specification>
         <specification
-            annotationType="su.softcom.cldt.testing.coverage.partially_covered.function"
-            label="Partially Covered Function"
+            annotationType="su.softcom.cldt.testing.coverage.partially_covered.method"
+            label="Partially Covered Method"
             textPreferenceKey="coverage.partially_covered.text"
             textPreferenceValue="true"
             highlightPreferenceKey="coverage.partially_covered.highlight"

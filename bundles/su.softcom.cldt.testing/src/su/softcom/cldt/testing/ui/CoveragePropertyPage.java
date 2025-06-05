@@ -81,7 +81,7 @@ public class CoveragePropertyPage extends PropertyPage {
 			return CoverageProjectSettings.getProjectExcludes(project);
 		} catch (CoreException e) {
 			Activator.getDefault().getLog().log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_READ_EXCLUDES, e));
-			return ""; //$NON-NLS-1$
+			return "";
 		}
 	}
 

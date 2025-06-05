@@ -10,9 +10,9 @@ public class CoverageAnnotation extends Annotation {
 	public static final String TYPE_COVERED_BRANCH = BASE_TYPE + "covered.branch";
 	public static final String TYPE_NOT_COVERED_BRANCH = BASE_TYPE + "not_covered.branch";
 	public static final String TYPE_PARTIALLY_COVERED_BRANCH = BASE_TYPE + "partially_covered.branch";
-	public static final String TYPE_COVERED_FUNCTION = BASE_TYPE + "covered.function";
-	public static final String TYPE_NOT_COVERED_FUNCTION = BASE_TYPE + "not_covered.function";
-	public static final String TYPE_PARTIALLY_COVERED_FUNCTION = BASE_TYPE + "partially_covered.function";
+	public static final String TYPE_COVERED_METHOD = BASE_TYPE + "covered.method";
+	public static final String TYPE_NOT_COVERED_METHOD = BASE_TYPE + "not_covered.method";
+	public static final String TYPE_PARTIALLY_COVERED_METHOD = BASE_TYPE + "partially_covered.method";
 
 	public CoverageAnnotation(String type, String text) {
 		super(type, false, text);

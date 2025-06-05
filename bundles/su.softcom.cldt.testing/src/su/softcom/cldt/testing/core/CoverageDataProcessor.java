@@ -1,16 +1,19 @@
 package su.softcom.cldt.testing.core;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
-
-import su.softcom.cldt.testing.ui.CoverageNode;
 import su.softcom.cldt.testing.ui.Messages;
+import su.softcom.cldt.testing.ui.CoverageNode;
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageDataProcessor {
@@ -18,11 +21,13 @@ public class CoverageDataProcessor {
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String LINE_COUNTERS = Messages.CoverageResultView_1;
 	private static final String BRANCH_COUNTERS = Messages.CoverageResultView_2;
-	private static final String FUNCTION_COUNTERS = Messages.CoverageResultView_3;
+	private static final String METHOD_COUNTERS = Messages.CoverageResultView_3;
 	private static final String GLOBAL_CLASS = "Global";
 	private static final String MAIN_METHOD = "main";
 	private static final String WARNING_NO_COUNTER_DATA = "No counter data for file: %s, counter: %s";
 	private static final String WARNING_DEMANGLE_FAILED = "Failed to demangle name: %s";
+	private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList("c", "h", "cpp", "hpp", "cc",
+			"cxx", "hh", "hxx", "C", "inl", "tcc", "c++", "ipp", "cu", "cppm"));
 
 	private String selectedCounter;
 
@@ -82,14 +87,14 @@ public class CoverageDataProcessor {
 			return null;
 		}
 
-		if (FUNCTION_COUNTERS.equals(selectedCounter)) {
+		if (METHOD_COUNTERS.equals(selectedCounter)) {
 			List<ReportParser.MethodCoverage> methods = coverageResults.methodCoverage.getOrDefault(filePath,
 					new ArrayList<>());
-			int totalFunctions = methods.size();
-			int coveredFunctions = (int) methods.stream().filter(m -> m.executionCount > 0).count();
-			double percentage = totalFunctions > 0 ? (100.0 * coveredFunctions / totalFunctions) : 0.0;
-			return new Object[] { filePath, String.format("%.2f%%", percentage), coveredFunctions,
-					totalFunctions - coveredFunctions, totalFunctions };
+			int totalMethods = methods.size();
+			int coveredMethods = (int) methods.stream().filter(m -> m.executionCount > 0).count();
+			double percentage = totalMethods > 0 ? (100.0 * coveredMethods / totalMethods) : 0.0;
+			return new Object[] { filePath, String.format("%.2f%%", percentage), coveredMethods,
+					totalMethods - coveredMethods, totalMethods };
 		}
 
 		if (BRANCH_COUNTERS.equals(selectedCounter)) {
@@ -148,7 +153,7 @@ public class CoverageDataProcessor {
 		Map<String, CoverageNode> classNodes = new HashMap<>();
 
 		for (ReportParser.MethodCoverage method : methods) {
-			String demangledName = demangleCppName(method.name);
+			String demangledName = demangleCppName(method.name, filePath);
 			String className = extractClassName(demangledName);
 			String simpleMethodName = extractMethodName(demangledName);
 			Object[] methodData = calculateMethodData(method, methodLines, branches, simpleMethodName);
@@ -194,13 +199,12 @@ public class CoverageDataProcessor {
 			double percentage = methodTotalLines > 0 ? (100.0 * methodCoveredLines / methodTotalLines) : 0.0;
 			return new Object[] { simpleMethodName, String.format("%.2f%%", percentage), methodCoveredLines,
 					methodTotalLines - methodCoveredLines, methodTotalLines };
-		} else if (FUNCTION_COUNTERS.equals(selectedCounter)) {
-			int methodTotalFunctions = 1;
-			int methodCoveredFunctions = method.executionCount > 0 ? 1 : 0;
-			double percentage = methodTotalFunctions > 0 ? (100.0 * methodCoveredFunctions / methodTotalFunctions)
-					: 0.0;
-			return new Object[] { simpleMethodName, String.format("%.2f%%", percentage), methodCoveredFunctions,
-					methodTotalFunctions - methodCoveredFunctions, methodTotalFunctions };
+		} else if (METHOD_COUNTERS.equals(selectedCounter)) {
+			int methodTotalMethods = 1;
+			int methodCoveredMethods = method.executionCount > 0 ? 1 : 0;
+			double percentage = methodTotalMethods > 0 ? (100.0 * methodCoveredMethods / methodTotalMethods) : 0.0;
+			return new Object[] { simpleMethodName, String.format("%.2f%%", percentage), methodCoveredMethods,
+					methodTotalMethods - methodCoveredMethods, methodTotalMethods };
 		} else if (BRANCH_COUNTERS.equals(selectedCounter)) {
 			int methodTotalBranches = 0;
 			int coveredBranches = 0;
@@ -231,10 +235,10 @@ public class CoverageDataProcessor {
 				int classCoveredBranches = calculateClassCoveredBranches(classNode, branches, methods);
 				int classTotalBranches = calculateClassTotalBranches(classNode, branches, methods);
 				setClassCoverageData(classNode, classCoveredBranches, classTotalBranches);
-			} else if (FUNCTION_COUNTERS.equals(selectedCounter)) {
-				int classCoveredFunctions = calculateClassCoveredFunctions(classNode);
-				int classTotalFunctions = calculateClassTotalFunctions(classNode);
-				setClassCoverageData(classNode, classCoveredFunctions, classTotalFunctions);
+			} else if (METHOD_COUNTERS.equals(selectedCounter)) {
+				int classCoveredMethods = calculateClassCoveredMethods(classNode);
+				int classTotalMethods = calculateClassTotalMethods(classNode);
+				setClassCoverageData(classNode, classCoveredMethods, classTotalMethods);
 			}
 		}
 	}
@@ -302,7 +306,7 @@ public class CoverageDataProcessor {
 		return total;
 	}
 
-	private int calculateClassCoveredFunctions(CoverageNode classNode) {
+	private int calculateClassCoveredMethods(CoverageNode classNode) {
 		int covered = 0;
 		for (CoverageNode methodNode : classNode.getChildren()) {
 			Object[] methodData = methodNode.getCoverageData();
@@ -313,7 +317,7 @@ public class CoverageDataProcessor {
 		return covered;
 	}
 
-	private int calculateClassTotalFunctions(CoverageNode classNode) {
+	private int calculateClassTotalMethods(CoverageNode classNode) {
 		int total = 0;
 		for (CoverageNode methodNode : classNode.getChildren()) {
 			Object[] methodData = methodNode.getCoverageData();
@@ -359,57 +363,59 @@ public class CoverageDataProcessor {
 		}
 	}
 
-	private String demangleCppName(String mangledName) {
-		if (!mangledName.startsWith("_Z")) {
+	public static String demangleCppName(String mangledName, String filePath) {
+		if (mangledName == null || mangledName.isEmpty()) {
 			return mangledName;
 		}
 
-		try {
-			StringBuilder demangled = new StringBuilder();
-			int pos = mangledName.startsWith("_ZNK") ? 4 : mangledName.startsWith("_ZN") ? 3 : 2;
-			if (mangledName.startsWith("_ZNK")) {
-				demangled.append("const ");
+		boolean isSourceFile = isSourceFile(filePath);
+
+		if (mangledName.startsWith("_Z") && isSourceFile) {
+			try {
+				CommandExecutor executor = new CommandExecutor();
+				List<String> command = Arrays.asList("c++filt", mangledName);
+				StringBuilder output = new StringBuilder();
+
+				int exitCode = executor.executeCommand(command, null, null, output);
+				if (exitCode == 0 && !output.toString().trim().isEmpty()) {
+					return cleanDemangledName(output.toString().trim());
+				} else {
+					LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+							String.format(WARNING_DEMANGLE_FAILED, mangledName)));
+					return cleanRawName(mangledName);
+				}
+			} catch (IOException | InterruptedException e) {
+				LOGGER.log(
+						new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_DEMANGLE_FAILED, mangledName), e));
+				return cleanRawName(mangledName);
 			}
-
-			StringBuilder lengthStr = new StringBuilder();
-			while (pos < mangledName.length() && Character.isDigit(mangledName.charAt(pos))) {
-				lengthStr.append(mangledName.charAt(pos));
-				pos++;
-			}
-
-			if (lengthStr.length() == 0) {
-				return mangledName;
-			}
-
-			int classLength = Integer.parseInt(lengthStr.toString());
-			if (pos + classLength > mangledName.length()) {
-				return mangledName;
-			}
-
-			String className = mangledName.substring(pos, pos + classLength);
-			pos += classLength;
-
-			lengthStr = new StringBuilder();
-			while (pos < mangledName.length() && Character.isDigit(mangledName.charAt(pos))) {
-				lengthStr.append(mangledName.charAt(pos));
-				pos++;
-			}
-
-			if (lengthStr.length() == 0) {
-				return className + "::" + mangledName;
-			}
-
-			int methodLength = Integer.parseInt(lengthStr.toString());
-			if (pos + methodLength > mangledName.length()) {
-				return className + "::" + mangledName;
-			}
-
-			String methodName = mangledName.substring(pos, pos + methodLength);
-			return className + "::" + methodName;
-		} catch (Exception e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_DEMANGLE_FAILED, mangledName), e));
-			return mangledName;
 		}
+
+		return cleanRawName(mangledName);
+	}
+
+	private static String cleanDemangledName(String demangled) {
+		String cleaned = demangled.replaceAll("\\s*const\\s*$", "");
+		int paramIndex = cleaned.indexOf('(');
+		if (paramIndex != -1) {
+			cleaned = cleaned.substring(0, paramIndex);
+		}
+		return cleaned.trim();
+	}
+
+	private static String cleanRawName(String rawName) {
+		String cleaned = rawName;
+		cleaned = cleaned.replaceFirst("^_", "");
+		cleaned = cleaned.replaceAll("@\\d+$", "");
+		return cleaned.trim();
+	}
+
+	private static boolean isSourceFile(String filePath) {
+		if (filePath == null) {
+			return false;
+		}
+		String lowerPath = filePath.toLowerCase();
+		return ALLOWED_EXTENSIONS.stream().anyMatch(lowerPath::endsWith);
 	}
 
 	private String extractClassName(String methodName) {

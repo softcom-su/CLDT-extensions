@@ -1,5 +1,8 @@
 package su.softcom.cldt.testing.core;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,8 +19,8 @@ public class ReportParser {
 	private static final String COVERED_LINES_KEY = "coveredLines";
 	private static final String TOTAL_BRANCHES_KEY = "totalBranches";
 	private static final String COVERED_BRANCHES_KEY = "coveredBranches";
-	private static final String TOTAL_FUNCTIONS_KEY = "totalFunctions";
-	private static final String COVERED_FUNCTIONS_KEY = "coveredFunctions";
+	private static final String TOTAL_METHODS_KEY = "totalMethods";
+	private static final String COVERED_METHODS_KEY = "coveredMethods";
 	private static final String LINE_PREFIX = "DA:";
 	private static final String BRANCH_PREFIX = "BRDA:";
 	private static final String METHOD_PREFIX = "FN:";
@@ -28,6 +31,7 @@ public class ReportParser {
 	private static final String WARNING_INVALID_BRANCH = "Invalid branch coverage format: %s";
 	private static final String WARNING_INVALID_METHOD = "Invalid method name format: %s";
 	private static final String WARNING_INVALID_METHOD_EXEC = "Invalid method coverage format: %s";
+	private static final String WARNING_READ_FILE = "Failed to read file for signature line detection: %s";
 	private static final ILog LOGGER = Platform.getLog(ReportParser.class);
 
 	private ReportParser() {
@@ -81,12 +85,14 @@ public class ReportParser {
 		public int executionCount;
 		public int startLine;
 		public int endLine;
+		public int signatureLine;
 
-		public MethodCoverage(String name, int executionCount, int startLine) {
+		public MethodCoverage(String name, int executionCount, int startLine, int signatureLine) {
 			this.name = name;
 			this.executionCount = executionCount;
 			this.startLine = startLine;
 			this.endLine = -1;
+			this.signatureLine = signatureLine;
 		}
 	}
 
@@ -189,13 +195,13 @@ public class ReportParser {
 
 	private static void updateFileContext(FileContext context, String line) {
 		Map<String, Integer> counters = updateCounters(line, context.totalLines, context.coveredLines,
-				context.totalBranches, context.coveredBranches, context.totalFunctions, context.coveredFunctions);
+				context.totalBranches, context.coveredBranches, context.totalMethods, context.coveredMethods);
 		context.totalLines = counters.get(TOTAL_LINES_KEY);
 		context.coveredLines = counters.get(COVERED_LINES_KEY);
 		context.totalBranches = counters.get(TOTAL_BRANCHES_KEY);
 		context.coveredBranches = counters.get(COVERED_BRANCHES_KEY);
-		context.totalFunctions = counters.get(TOTAL_FUNCTIONS_KEY);
-		context.coveredFunctions = counters.get(COVERED_FUNCTIONS_KEY);
+		context.totalMethods = counters.get(TOTAL_METHODS_KEY);
+		context.coveredMethods = counters.get(COVERED_METHODS_KEY);
 
 		if (line.startsWith(LINE_PREFIX) && context.tempLineCoverage != null) {
 			parseLineCoverage(context, line);
@@ -242,8 +248,10 @@ public class ReportParser {
 			String[] parts = line.substring(3).split(",");
 			if (parts.length >= 2) {
 				int startLine = Integer.parseInt(parts[0]);
-				String methodName = parts[1];
-				context.currentMethodCoverage.add(new MethodCoverage(methodName, 0, startLine));
+				String mangledName = parts[1];
+				String methodName = CoverageDataProcessor.demangleCppName(mangledName, context.currentFile);
+				int signatureLine = findSignatureLine(context.currentFile, startLine);
+				context.currentMethodCoverage.add(new MethodCoverage(methodName, 0, startLine, signatureLine));
 			}
 		} catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
 			logWarning(String.format(WARNING_INVALID_METHOD, line), e);
@@ -255,7 +263,7 @@ public class ReportParser {
 			String[] parts = line.substring(5).split(",");
 			if (parts.length >= 2) {
 				int executionCount = Integer.parseInt(parts[0]);
-				String methodName = parts[1];
+				String methodName = CoverageDataProcessor.demangleCppName(parts[1], context.currentFile);
 				context.currentMethodCoverage.stream().filter(m -> m.name.equals(methodName)).findFirst()
 						.ifPresent(m -> m.executionCount = executionCount);
 			}
@@ -265,14 +273,14 @@ public class ReportParser {
 	}
 
 	private static Map<String, Integer> updateCounters(String line, int totalLines, int coveredLines, int totalBranches,
-			int coveredBranches, int totalFunctions, int coveredFunctions) {
+			int coveredBranches, int totalMethods, int coveredMethods) {
 		Map<String, Integer> counters = new HashMap<>();
 		counters.put(TOTAL_LINES_KEY, totalLines);
 		counters.put(COVERED_LINES_KEY, coveredLines);
 		counters.put(TOTAL_BRANCHES_KEY, totalBranches);
 		counters.put(COVERED_BRANCHES_KEY, coveredBranches);
-		counters.put(TOTAL_FUNCTIONS_KEY, totalFunctions);
-		counters.put(COVERED_FUNCTIONS_KEY, coveredFunctions);
+		counters.put(TOTAL_METHODS_KEY, totalMethods);
+		counters.put(COVERED_METHODS_KEY, coveredMethods);
 
 		try {
 			if (line.startsWith(LINE_PREFIX)) {
@@ -294,9 +302,9 @@ public class ReportParser {
 					}
 				}
 			} else if (line.startsWith("FNF:")) {
-				counters.put(TOTAL_FUNCTIONS_KEY, Integer.parseInt(line.substring(4)));
+				counters.put(TOTAL_METHODS_KEY, Integer.parseInt(line.substring(4)));
 			} else if (line.startsWith("FNH:")) {
-				counters.put(COVERED_FUNCTIONS_KEY, Integer.parseInt(line.substring(4)));
+				counters.put(COVERED_METHODS_KEY, Integer.parseInt(line.substring(4)));
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
 			logWarning("Invalid counter format: " + line, e);
@@ -319,13 +327,11 @@ public class ReportParser {
 						context.coveredBranches, context.totalBranches - context.coveredBranches,
 						context.totalBranches });
 
-		double functionCoverage = context.totalFunctions > 0
-				? (100.0 * context.coveredFunctions / context.totalFunctions)
+		double methodCoverage = context.totalMethods > 0 ? (100.0 * context.coveredMethods / context.totalMethods)
 				: 0.0;
 		result.put(Messages.ReportParser_13,
-				new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, functionCoverage),
-						context.coveredFunctions, context.totalFunctions - context.coveredFunctions,
-						context.totalFunctions });
+				new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, methodCoverage),
+						context.coveredMethods, context.totalMethods - context.coveredMethods, context.totalMethods });
 
 		return result;
 	}
@@ -334,14 +340,32 @@ public class ReportParser {
 		LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, message, cause));
 	}
 
+	private static int findSignatureLine(String filePath, int bodyLine) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+			String line;
+			int currentLine = 0;
+			String prevLine = null;
+			while ((line = reader.readLine()) != null) {
+				currentLine++;
+				if (currentLine == bodyLine && line.trim().startsWith("{")) {
+					return prevLine != null ? bodyLine - 1 : bodyLine;
+				}
+				prevLine = line;
+			}
+		} catch (IOException e) {
+			logWarning(String.format(WARNING_READ_FILE, filePath), e);
+		}
+		return bodyLine;
+	}
+
 	private static class FileContext {
 		String currentFile;
 		int totalLines;
 		int coveredLines;
 		int totalBranches;
 		int coveredBranches;
-		int totalFunctions;
-		int coveredFunctions;
+		int totalMethods;
+		int coveredMethods;
 		List<LineCoverage> currentLineCoverage;
 		List<LineCoverage> currentNonMethodLineCoverage;
 		List<LineCoverage> tempLineCoverage;
@@ -351,7 +375,7 @@ public class ReportParser {
 
 		void reset(String file) {
 			currentFile = file;
-			totalLines = coveredLines = totalBranches = coveredBranches = totalFunctions = coveredFunctions = 0;
+			totalLines = coveredLines = totalBranches = coveredBranches = totalMethods = coveredMethods = 0;
 			currentLineCoverage = new ArrayList<>();
 			currentNonMethodLineCoverage = new ArrayList<>();
 			tempLineCoverage = new ArrayList<>();
