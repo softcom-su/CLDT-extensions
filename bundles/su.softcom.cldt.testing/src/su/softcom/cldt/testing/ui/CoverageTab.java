@@ -7,9 +7,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -17,6 +14,10 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
 import org.eclipse.debug.ui.AbstractLaunchConfigurationTab;
@@ -50,7 +51,8 @@ import su.softcom.cldt.testing.utils.CoverageUtils;
 import su.softcom.cldt.ui.dialogs.ProjectSelectionDialog;
 
 public class CoverageTab extends AbstractLaunchConfigurationTab {
-	private static final Logger LOGGER = Logger.getLogger(CoverageTab.class.getName());
+	private static final ILog LOGGER = Platform.getLog(CoverageTab.class);
+	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String PROJECT_NAME_KEY = "projectName";
 	private static final String TARGET_NAME_KEY = "targetName";
 	private static final String ANALYSIS_SCOPE_KEY = "analysisScope";
@@ -122,7 +124,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 												&& ALLOWED_EXTENSIONS.contains(file.getFileExtension().toLowerCase())))
 								.filter(member -> member instanceof IFile || hasValidFiles(member)).toArray();
 					} catch (CoreException e) {
-						LOGGER.log(Level.SEVERE, "Error getting project members", e);
+						LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error getting project members", e));
 						return new Object[0];
 					}
 				} else if (parentElement instanceof IFolder folder) {
@@ -134,7 +136,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 												&& ALLOWED_EXTENSIONS.contains(file.getFileExtension().toLowerCase())))
 								.filter(member -> member instanceof IFile || hasValidFiles(member)).toArray();
 					} catch (CoreException e) {
-						LOGGER.log(Level.SEVERE, "Error getting folder members", e);
+						LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error getting folder members", e));
 						return new Object[0];
 					}
 				}
@@ -162,7 +164,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				try {
 					members = element instanceof IProject project ? project.members() : ((IFolder) element).members();
 				} catch (CoreException e) {
-					LOGGER.log(Level.SEVERE, "Error checking valid files", e);
+					LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error checking valid files", e));
 					return false;
 				}
 				return Arrays.stream(members).filter(member -> !EXCLUDED_FOLDERS.contains(member.getName()))
@@ -205,7 +207,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 							treeViewer.setChecked(item, checked);
 						}
 					} catch (CoreException e) {
-						LOGGER.log(Level.SEVERE, "Error updating check state for folder", e);
+						LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error updating check state for folder", e));
 					}
 				}
 				updateParentCheckState(element, checked);
@@ -236,7 +238,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 						}
 					}
 				} catch (Exception e) {
-					LOGGER.log(Level.SEVERE, "Error checking children state", e);
+					LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error checking children state", e));
 				}
 				return false;
 			}
@@ -258,7 +260,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 					treeViewer.setCheckedElements(allItems.toArray());
 					updateLaunchConfigurationDialog();
 				} catch (CoreException ex) {
-					LOGGER.log(Level.SEVERE, "Error selecting all files and folders", ex);
+					LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error selecting all files and folders", ex));
 				}
 			}
 		}));
@@ -362,7 +364,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 				}
 			}
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error initializing from configuration", e);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error initializing from configuration", e));
 		}
 	}
 
@@ -398,7 +400,7 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		try {
 			members = resource instanceof IProject project ? project.members() : ((IFolder) resource).members();
 		} catch (CoreException e) {
-			LOGGER.log(Level.SEVERE, "Error checking valid files", e);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Error checking valid files", e));
 			return false;
 		}
 		return Arrays.stream(members).filter(member -> !EXCLUDED_FOLDERS.contains(member.getName()))

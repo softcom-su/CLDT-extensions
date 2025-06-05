@@ -1,8 +1,5 @@
 package su.softcom.cldt.testing.core;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,8 +8,10 @@ import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
+import su.softcom.cldt.testing.ui.CoverageDataManager;
 
 public class ReportParser {
+	private static final ILog LOGGER = Platform.getLog(ReportParser.class);
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String PERCENTAGE_FORMAT = "%.2f%%";
 	private static final String TOTAL_LINES_KEY = "totalLines";
@@ -24,74 +23,47 @@ public class ReportParser {
 	private static final String LINE_PREFIX = "DA:";
 	private static final String BRANCH_PREFIX = "BRDA:";
 	private static final String FUNCTION_PREFIX = "FN:";
-	private static final String FUNCTION_EXECUTION_PREFIX = "FNDA:";
 	private static final String FILE_PREFIX = "SF:";
 	private static final String END_RECORD = "end_of_record";
-	private static final String WARNING_INVALID_LINE = "Invalid line coverage format: %s";
-	private static final String WARNING_INVALID_BRANCH = "Invalid branch coverage format: %s";
-	private static final String WARNING_INVALID_FUNCTION = "Invalid function name format: %s";
-	private static final String WARNING_INVALID_FUNCTION_EXEC = "Invalid function coverage format: %s";
-	private static final String WARNING_READ_FILE = "Failed to read file for signature line detection: %s";
-	private static final ILog LOGGER = Platform.getLog(ReportParser.class);
+
+	public static final String FUNCTION_EXECUTION_PREFIX = "FNDA:";
 
 	private ReportParser() {
 	}
 
-	public static class CoverageResult {
-		public Map<String, Map<String, Object[]>> fileCoverage;
-		public Map<String, List<LineCoverage>> lineCoverage;
-		public Map<String, List<LineCoverage>> nonFunctionLineCoverage;
-		public Map<String, List<BranchCoverage>> branchCoverage;
-		public Map<String, List<FunctionCoverage>> functionCoverage;
+	public record CoverageResult(Map<String, Map<String, Object[]>> fileCoverage,
+			Map<String, List<LineCoverage>> lineCoverage, Map<String, List<LineCoverage>> nonFunctionLineCoverage,
+			Map<String, List<BranchCoverage>> branchCoverage, Map<String, List<FunctionCoverage>> functionCoverage,
+			Map<String, List<FunctionCoverage>> annotationFunctionCoverage) {
+	}
 
-		public CoverageResult(Map<String, Map<String, Object[]>> fileCoverage,
-				Map<String, List<LineCoverage>> lineCoverage, Map<String, List<LineCoverage>> nonFunctionLineCoverage,
-				Map<String, List<BranchCoverage>> branchCoverage,
-				Map<String, List<FunctionCoverage>> functionCoverage) {
-			this.fileCoverage = fileCoverage;
-			this.lineCoverage = lineCoverage;
-			this.nonFunctionLineCoverage = nonFunctionLineCoverage;
-			this.branchCoverage = branchCoverage;
-			this.functionCoverage = functionCoverage;
+	public record LineCoverage(int lineNumber, int executionCount) {
+	}
+
+	public record BranchCoverage(int lineNumber, boolean covered) {
+	}
+
+	public record FunctionCoverage(String name, List<String> mangledNames, int executionCount, int startLine,
+			int endLine, int signatureLine, boolean isLambda) {
+		public static FunctionCoverage create(String name, List<String> mangledNames, int executionCount, int startLine,
+				int signatureLine, boolean isLambda) {
+			return new FunctionCoverage(name, mangledNames, executionCount, startLine, -1, signatureLine, isLambda);
 		}
 	}
 
-	public static class LineCoverage {
-		public int lineNumber;
-		public int executionCount;
-
-		public LineCoverage(int lineNumber, int executionCount) {
-			this.lineNumber = lineNumber;
-			this.executionCount = executionCount;
-		}
+	public record MangledDemangledPair(String mangledName, String demangledName) {
 	}
 
-	public static class BranchCoverage {
-		public int lineNumber;
-		public boolean covered;
-
-		public BranchCoverage(int lineNumber, boolean covered) {
-			this.lineNumber = lineNumber;
-			this.covered = covered;
-		}
-	}
-
-	public static class FunctionCoverage {
-		public String name;
-		public List<String> mangledNames;
-		public int executionCount;
-		public int startLine;
-		public int endLine;
-		public int signatureLine;
-
-		public FunctionCoverage(String name, List<String> mangledNames, int executionCount, int startLine,
-				int signatureLine) {
-			this.name = name;
-			this.mangledNames = mangledNames;
-			this.executionCount = executionCount;
-			this.startLine = startLine;
-			this.endLine = -1;
-			this.signatureLine = signatureLine;
+	public record FileContext(String currentFile, int totalLines, int coveredLines, int totalBranches,
+			int coveredBranches, int totalFunctions, int coveredFunctions, List<LineCoverage> currentLineCoverage,
+			List<LineCoverage> currentNonFunctionLineCoverage, List<LineCoverage> tempLineCoverage,
+			List<BranchCoverage> currentBranchCoverage, List<FunctionCoverage> currentFunctionCoverage,
+			List<FunctionCoverage> annotationFunctionCoverage,
+			Map<Integer, List<MangledDemangledPair>> tempFunctionNames, List<String> fnExecutionLines,
+			int maxLineNumber) {
+		public FileContext reset(String file) {
+			return new FileContext(file, 0, 0, 0, 0, 0, 0, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+					new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new HashMap<>(), new ArrayList<>(), 0);
 		}
 	}
 
@@ -101,178 +73,161 @@ public class ReportParser {
 		Map<String, List<LineCoverage>> nonFunctionLineCoverage = new HashMap<>();
 		Map<String, List<BranchCoverage>> branchCoverage = new HashMap<>();
 		Map<String, List<FunctionCoverage>> functionCoverage = new HashMap<>();
-		FileContext context = new FileContext();
+		Map<String, List<FunctionCoverage>> annotationFunctionCoverage = new HashMap<>();
+		FileContext context = new FileContext(null, 0, 0, 0, 0, 0, 0, new ArrayList<>(), new ArrayList<>(),
+				new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new HashMap<>(),
+				new ArrayList<>(), 0);
 
 		for (String line : reportLines) {
 			String trimmedLine = line.trim();
 			if (trimmedLine.startsWith(FILE_PREFIX) || trimmedLine.startsWith(END_RECORD)) {
 				if (context.currentFile != null) {
 					processFileContext(context, coverageResults, lineCoverage, nonFunctionLineCoverage, branchCoverage,
-							functionCoverage);
+							functionCoverage, annotationFunctionCoverage);
 				}
 				if (trimmedLine.startsWith(FILE_PREFIX)) {
-					context.reset(trimmedLine.substring(3));
+					context = context.reset(trimmedLine.substring(3));
 				} else {
-					context.currentFile = null;
+					context = context.reset(null);
 				}
 			} else {
-				updateFileContext(context, trimmedLine);
+				context = updateFileContext(context, trimmedLine);
 			}
 		}
 
 		if (context.currentFile != null) {
 			processFileContext(context, coverageResults, lineCoverage, nonFunctionLineCoverage, branchCoverage,
-					functionCoverage);
+					functionCoverage, annotationFunctionCoverage);
 		}
 
-		return new CoverageResult(coverageResults, lineCoverage, nonFunctionLineCoverage, branchCoverage,
-				functionCoverage);
+		CoverageResult result = new CoverageResult(coverageResults, lineCoverage, nonFunctionLineCoverage,
+				branchCoverage, functionCoverage, annotationFunctionCoverage);
+		CoverageDataManager.getInstance().setCoverageData(result, List.of());
+		return result;
 	}
 
 	private static void processFileContext(FileContext context, Map<String, Map<String, Object[]>> coverageResults,
 			Map<String, List<LineCoverage>> lineCoverage, Map<String, List<LineCoverage>> nonFunctionLineCoverage,
-			Map<String, List<BranchCoverage>> branchCoverage, Map<String, List<FunctionCoverage>> functionCoverage) {
-		if (!context.currentFunctionCoverage.isEmpty()) {
-			assignFunctionEndLines(context);
-			distributeLineCoverage(context);
-		} else {
-			context.currentNonFunctionLineCoverage.addAll(context.tempLineCoverage);
-		}
+			Map<String, List<BranchCoverage>> branchCoverage, Map<String, List<FunctionCoverage>> functionCoverage,
+			Map<String, List<FunctionCoverage>> annotationFunctionCoverage) {
+		FunctionCoverageAnalyzer.processFunctionCoverage(context);
+
 		coverageResults.put(context.currentFile, calculateCoverageForFile(context));
 		lineCoverage.put(context.currentFile, context.currentLineCoverage);
 		nonFunctionLineCoverage.put(context.currentFile, context.currentNonFunctionLineCoverage);
 		branchCoverage.put(context.currentFile, context.currentBranchCoverage);
 		functionCoverage.put(context.currentFile, context.currentFunctionCoverage);
+		annotationFunctionCoverage.put(context.currentFile, context.annotationFunctionCoverage);
 	}
 
-	private static void assignFunctionEndLines(FileContext context) {
-		context.currentFunctionCoverage.sort((f1, f2) -> Integer.compare(f1.startLine, f2.startLine));
-		for (int i = 0; i < context.currentFunctionCoverage.size() - 1; i++) {
-			FunctionCoverage current = context.currentFunctionCoverage.get(i);
-			FunctionCoverage next = context.currentFunctionCoverage.get(i + 1);
-			current.endLine = next.startLine - 1;
-			if (!hasExecutableLines(context.tempLineCoverage, current.startLine, current.endLine)) {
-				current.endLine = current.startLine;
-			}
-		}
-		FunctionCoverage lastFunction = context.currentFunctionCoverage.get(context.currentFunctionCoverage.size() - 1);
-		lastFunction.endLine = context.maxLineNumber;
-		if (!hasExecutableLines(context.tempLineCoverage, lastFunction.startLine, lastFunction.endLine)) {
-			lastFunction.endLine = lastFunction.startLine;
-		}
-	}
-
-	private static boolean hasExecutableLines(List<LineCoverage> lines, int startLine, int endLine) {
-		return lines.stream().anyMatch(lc -> lc.lineNumber > startLine && lc.lineNumber < endLine);
-	}
-
-	private static void distributeLineCoverage(FileContext context) {
-		for (LineCoverage lineCov : context.tempLineCoverage) {
-			boolean belongsToFunction = context.currentFunctionCoverage.stream()
-					.anyMatch(f -> lineCov.lineNumber >= f.startLine && lineCov.lineNumber <= f.endLine);
-			if (belongsToFunction) {
-				context.currentLineCoverage.add(lineCov);
-			} else {
-				context.currentNonFunctionLineCoverage.add(lineCov);
-			}
-		}
-	}
-
-	private static void updateFileContext(FileContext context, String line) {
+	private static FileContext updateFileContext(FileContext context, String line) {
 		Map<String, Integer> counters = updateCounters(line, context.totalLines, context.coveredLines,
 				context.totalBranches, context.coveredBranches, context.totalFunctions, context.coveredFunctions);
-		context.totalLines = counters.get(TOTAL_LINES_KEY);
-		context.coveredLines = counters.get(COVERED_LINES_KEY);
-		context.totalBranches = counters.get(TOTAL_BRANCHES_KEY);
-		context.coveredBranches = counters.get(COVERED_BRANCHES_KEY);
-		context.totalFunctions = counters.get(TOTAL_FUNCTIONS_KEY);
-		context.coveredFunctions = counters.get(COVERED_FUNCTIONS_KEY);
+		FileContext updatedContext = new FileContext(context.currentFile, counters.get(TOTAL_LINES_KEY),
+				counters.get(COVERED_LINES_KEY), counters.get(TOTAL_BRANCHES_KEY), counters.get(COVERED_BRANCHES_KEY),
+				counters.get(TOTAL_FUNCTIONS_KEY), counters.get(COVERED_FUNCTIONS_KEY), context.currentLineCoverage,
+				context.currentNonFunctionLineCoverage, context.tempLineCoverage, context.currentBranchCoverage,
+				context.currentFunctionCoverage, context.annotationFunctionCoverage, context.tempFunctionNames,
+				context.fnExecutionLines, context.maxLineNumber);
 
-		if (line.startsWith(LINE_PREFIX) && context.tempLineCoverage != null) {
-			parseLineCoverage(context, line);
-		} else if (line.startsWith(BRANCH_PREFIX) && context.currentBranchCoverage != null) {
-			parseBranchCoverage(context, line);
-		} else if (line.startsWith(FUNCTION_PREFIX) && context.currentFunctionCoverage != null) {
-			parseFunctionCoverage(context, line);
-		} else if (line.startsWith(FUNCTION_EXECUTION_PREFIX) && context.currentFunctionCoverage != null) {
-			parseFunctionExecution(context, line);
+		if (line.startsWith(LINE_PREFIX) && updatedContext.tempLineCoverage != null) {
+			return parseLineCoverage(updatedContext, line);
+		} else if (line.startsWith(BRANCH_PREFIX) && updatedContext.currentBranchCoverage != null) {
+			return parseBranchCoverage(updatedContext, line);
+		} else if (line.startsWith(FUNCTION_PREFIX) && updatedContext.currentFunctionCoverage != null) {
+			return parseFunctionCoverage(updatedContext, line);
+		} else if (line.startsWith(FUNCTION_EXECUTION_PREFIX) && updatedContext.currentFunctionCoverage != null) {
+			return parseFunctionExecution(updatedContext, line);
 		}
+		return updatedContext;
 	}
 
-	private static void parseLineCoverage(FileContext context, String line) {
+	private static FileContext parseLineCoverage(FileContext context, String line) {
 		try {
 			String[] parts = line.substring(3).split(",");
 			if (parts.length == 2) {
 				int lineNumber = Integer.parseInt(parts[0]);
 				int executionCount = Integer.parseInt(parts[1]);
 				if (executionCount >= 0) {
-					context.tempLineCoverage.add(new LineCoverage(lineNumber, executionCount));
-					context.maxLineNumber = Math.max(context.maxLineNumber, lineNumber);
+					List<LineCoverage> newTempLineCoverage = new ArrayList<>(context.tempLineCoverage);
+					newTempLineCoverage.add(new LineCoverage(lineNumber, executionCount));
+					return new FileContext(context.currentFile, context.totalLines, context.coveredLines,
+							context.totalBranches, context.coveredBranches, context.totalFunctions,
+							context.coveredFunctions, context.currentLineCoverage,
+							context.currentNonFunctionLineCoverage, newTempLineCoverage, context.currentBranchCoverage,
+							context.currentFunctionCoverage, context.annotationFunctionCoverage,
+							context.tempFunctionNames, context.fnExecutionLines,
+							Math.max(context.maxLineNumber, lineNumber));
 				}
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_LINE, line), e));
+			LOGGER.log(
+					new Status(IStatus.WARNING, PLUGIN_ID, String.format("Invalid line coverage format: %s", line), e));
 		}
+		return context;
 	}
 
-	private static void parseBranchCoverage(FileContext context, String line) {
+	private static FileContext parseBranchCoverage(FileContext context, String line) {
 		try {
 			String[] parts = line.substring(5).split(",");
 			if (parts.length == 4) {
 				int lineNumber = Integer.parseInt(parts[0]);
+
+				if (parts[3].equals("-")) {
+					LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+							String.format("Skipping branch coverage with invalid hits value: %s", line)));
+					return context;
+				}
 				int hits = Integer.parseInt(parts[3]);
-				context.currentBranchCoverage.add(new BranchCoverage(lineNumber, hits > 0));
+				List<BranchCoverage> newBranchCoverage = new ArrayList<>(context.currentBranchCoverage);
+				newBranchCoverage.add(new BranchCoverage(lineNumber, hits > 0));
+				return new FileContext(context.currentFile, context.totalLines, context.coveredLines,
+						context.totalBranches, context.coveredBranches, context.totalFunctions,
+						context.coveredFunctions, context.currentLineCoverage, context.currentNonFunctionLineCoverage,
+						context.tempLineCoverage, newBranchCoverage, context.currentFunctionCoverage,
+						context.annotationFunctionCoverage, context.tempFunctionNames, context.fnExecutionLines,
+						context.maxLineNumber);
 			}
 		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_BRANCH, line), e));
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format("Invalid branch coverage format: %s", line),
+					e));
 		}
+		return context;
 	}
 
-	private static void parseFunctionCoverage(FileContext context, String line) {
+	private static FileContext parseFunctionCoverage(FileContext context, String line) {
 		try {
 			String[] parts = line.substring(3).split(",");
 			if (parts.length >= 2) {
 				int startLine = Integer.parseInt(parts[0]);
-				String rawName = parts[1];
-				context.tempFunctionNames.computeIfAbsent(startLine, k -> new ArrayList<>()).add(rawName);
-				String functionName = DemangledNameUtils
-						.findCommonFunctionName(context.tempFunctionNames.get(startLine));
-
-				boolean exists = context.currentFunctionCoverage.stream()
-						.anyMatch(f -> f.startLine == startLine && f.name.equals(functionName));
-				if (exists) {
-					return;
-				}
-
-				int signatureLine = findSignatureLine(context.currentFile, startLine);
-				context.currentFunctionCoverage.add(new FunctionCoverage(functionName,
-						new ArrayList<>(context.tempFunctionNames.get(startLine)), 0, startLine, signatureLine));
+				String mangledName = parts[1];
+				String demangledName = FunctionNameProcessor.demangle(mangledName);
+				Map<Integer, List<MangledDemangledPair>> newTempFunctionNames = new HashMap<>(
+						context.tempFunctionNames);
+				newTempFunctionNames.computeIfAbsent(startLine, k -> new ArrayList<>())
+						.add(new MangledDemangledPair(mangledName, demangledName));
+				return new FileContext(context.currentFile, context.totalLines, context.coveredLines,
+						context.totalBranches, context.coveredBranches, context.totalFunctions,
+						context.coveredFunctions, context.currentLineCoverage, context.currentNonFunctionLineCoverage,
+						context.tempLineCoverage, context.currentBranchCoverage, context.currentFunctionCoverage,
+						context.annotationFunctionCoverage, newTempFunctionNames, context.fnExecutionLines,
+						context.maxLineNumber);
 			}
 		} catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_FUNCTION, line), e));
+			LOGGER.log(
+					new Status(IStatus.WARNING, PLUGIN_ID, String.format("Invalid function name format: %s", line), e));
 		}
+		return context;
 	}
 
-	private static void parseFunctionExecution(FileContext context, String line) {
-		try {
-			String[] parts = line.substring(5).split(",");
-			if (parts.length >= 2) {
-				int executionCount = Integer.parseInt(parts[0]);
-				String rawName = parts[1];
-				String functionName = DemangledNameUtils.extractCleanFunctionName(rawName);
-				boolean updated = context.currentFunctionCoverage.stream().filter(f -> f.name.equals(functionName))
-						.findFirst().map(f -> {
-							f.executionCount = executionCount;
-							return true;
-						}).orElse(false);
-				if (!updated) {
-					LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-							String.format("No function found for FNDA: %s", line)));
-				}
-			}
-		} catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_FUNCTION_EXEC, line), e));
-		}
+	private static FileContext parseFunctionExecution(FileContext context, String line) {
+		List<String> newFnExecutionLines = new ArrayList<>(context.fnExecutionLines);
+		newFnExecutionLines.add(line);
+		return new FileContext(context.currentFile, context.totalLines, context.coveredLines, context.totalBranches,
+				context.coveredBranches, context.totalFunctions, context.coveredFunctions, context.currentLineCoverage,
+				context.currentNonFunctionLineCoverage, context.tempLineCoverage, context.currentBranchCoverage,
+				context.currentFunctionCoverage, context.annotationFunctionCoverage, context.tempFunctionNames,
+				newFnExecutionLines, context.maxLineNumber);
 	}
 
 	private static Map<String, Integer> updateCounters(String line, int totalLines, int coveredLines, int totalBranches,
@@ -309,94 +264,20 @@ public class ReportParser {
 	private static Map<String, Object[]> calculateCoverageForFile(FileContext context) {
 		Map<String, Object[]> result = new HashMap<>();
 		double lineCoverage = context.totalLines > 0 ? (100.0 * context.coveredLines / context.totalLines) : 0.0;
-		result.put(Messages.ReportParser_9,
-				new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, lineCoverage),
-						context.coveredLines, context.totalLines - context.coveredLines, context.totalLines });
+		result.put("Lines", new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, lineCoverage),
+				context.coveredLines, context.totalLines - context.coveredLines, context.totalLines });
 
 		double branchCoverage = context.totalBranches > 0 ? (100.0 * context.coveredBranches / context.totalBranches)
 				: 0.0;
-		result.put(Messages.ReportParser_11,
-				new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, branchCoverage),
-						context.coveredBranches, context.totalBranches - context.coveredBranches,
-						context.totalBranches });
+		result.put("Branches", new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, branchCoverage),
+				context.coveredBranches, context.totalBranches - context.coveredBranches, context.totalBranches });
 
 		double functionCoverage = context.totalFunctions > 0
 				? (100.0 * context.coveredFunctions / context.totalFunctions)
 				: 0.0;
-		result.put(Messages.ReportParser_13,
-				new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, functionCoverage),
-						context.coveredFunctions, context.totalFunctions - context.coveredFunctions,
-						context.totalFunctions });
+		result.put("Functions", new Object[] { context.currentFile, String.format(PERCENTAGE_FORMAT, functionCoverage),
+				context.coveredFunctions, context.totalFunctions - context.coveredFunctions, context.totalFunctions });
 
 		return result;
-	}
-
-	private static int findSignatureLine(String filePath, int bodyLine) {
-		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-			String line;
-			int currentLine = 0;
-			String prevLine = null;
-			boolean foundBody = false;
-			while ((line = reader.readLine()) != null) {
-				currentLine++;
-				String trimmed = line.trim();
-				if (currentLine == bodyLine && trimmed.startsWith("{")) {
-					foundBody = true;
-					if (prevLine != null && !prevLine.trim().isEmpty()) {
-						return currentLine - 1;
-					}
-				} else if (currentLine >= bodyLine && !foundBody) {
-					if (trimmed.contains(")") && !trimmed.startsWith("//") && !trimmed.startsWith("/*")) {
-						return currentLine;
-					}
-				}
-				prevLine = line;
-			}
-			if (!foundBody) {
-				try (BufferedReader reader2 = new BufferedReader(new FileReader(filePath))) {
-					while ((line = reader2.readLine()) != null) {
-						currentLine++;
-						if (currentLine == bodyLine) {
-							if (line.trim().contains(")") && !line.trim().startsWith("//")) {
-								return bodyLine;
-							}
-							break;
-						}
-					}
-				}
-			}
-		} catch (IOException e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_READ_FILE, filePath), e));
-		}
-		return bodyLine;
-	}
-
-	private static class FileContext {
-		String currentFile;
-		int totalLines;
-		int coveredLines;
-		int totalBranches;
-		int coveredBranches;
-		int totalFunctions;
-		int coveredFunctions;
-		List<LineCoverage> currentLineCoverage;
-		List<LineCoverage> currentNonFunctionLineCoverage;
-		List<LineCoverage> tempLineCoverage;
-		List<BranchCoverage> currentBranchCoverage;
-		List<FunctionCoverage> currentFunctionCoverage;
-		Map<Integer, List<String>> tempFunctionNames;
-		int maxLineNumber;
-
-		void reset(String file) {
-			currentFile = file;
-			totalLines = coveredLines = totalBranches = coveredBranches = totalFunctions = coveredFunctions = 0;
-			currentLineCoverage = new ArrayList<>();
-			currentNonFunctionLineCoverage = new ArrayList<>();
-			tempLineCoverage = new ArrayList<>();
-			currentBranchCoverage = new ArrayList<>();
-			currentFunctionCoverage = new ArrayList<>();
-			tempFunctionNames = new HashMap<>();
-			maxLineNumber = 0;
-		}
 	}
 }

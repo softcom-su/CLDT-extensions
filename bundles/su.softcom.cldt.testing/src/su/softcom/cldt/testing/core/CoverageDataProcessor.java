@@ -1,7 +1,5 @@
 package su.softcom.cldt.testing.core;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,19 +8,17 @@ import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
-import su.softcom.cldt.testing.ui.Messages;
-import su.softcom.cldt.testing.ui.CoverageDataManager;
+
 import su.softcom.cldt.testing.ui.CoverageNode;
 import su.softcom.cldt.testing.utils.CoverageUtils;
 
 public class CoverageDataProcessor {
 	private static final ILog LOGGER = Platform.getLog(CoverageDataProcessor.class);
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
-	private static final String LINE_COUNTERS = Messages.CoverageResultView_1;
-	private static final String BRANCH_COUNTERS = Messages.CoverageResultView_2;
-	private static final String FUNCTION_COUNTERS = Messages.CoverageResultView_3;
+	private static final String LINE_COUNTERS = "Lines";
+	private static final String BRANCH_COUNTERS = "Branches";
+	private static final String FUNCTION_COUNTERS = "Functions";
 	private static final String WARNING_NO_COUNTER_DATA = "No counter data for file: %s, counter: %s";
-	private static final String WARNING_DEMANGLE_FAILED = "Failed to demangle name: %s, error=%s";
 
 	private String selectedCounter;
 
@@ -38,40 +34,10 @@ public class CoverageDataProcessor {
 		return selectedCounter;
 	}
 
-	private String demangle(String mangledName) {
-		if (mangledName == null || mangledName.isEmpty()) {
-			return mangledName;
-		}
-
-		try {
-			ProcessBuilder pb = new ProcessBuilder("c++filt", mangledName);
-			pb.redirectErrorStream(true);
-			Process process = pb.start();
-			StringBuilder output = new StringBuilder();
-			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					output.append(line);
-				}
-			}
-			int exitCode = process.waitFor();
-			if (exitCode == 0) {
-				return output.toString().trim();
-			} else {
-				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-						String.format(WARNING_DEMANGLE_FAILED, mangledName, "Non-zero exit code: " + exitCode)));
-				return mangledName;
-			}
-		} catch (Exception e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-					String.format(WARNING_DEMANGLE_FAILED, mangledName, e.getMessage()), e));
-			return mangledName;
-		}
-	}
-
 	public List<CoverageNode> buildCoverageTree(ReportParser.CoverageResult coverageResults,
 			List<String> analysisScope) {
 		if (analysisScope == null || analysisScope.isEmpty()) {
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Empty analysis scope"));
 			return new ArrayList<>();
 		}
 
@@ -86,8 +52,7 @@ public class CoverageDataProcessor {
 
 	private void processFiles(ReportParser.CoverageResult coverageResults, List<String> analysisScope,
 			List<CoverageNode> rootNodes, Map<String, CoverageNode> folderNodes) {
-		CoverageDataManager dataManager = CoverageDataManager.getInstance();
-		for (Map.Entry<String, Map<String, Object[]>> entry : coverageResults.fileCoverage.entrySet()) {
+		for (Map.Entry<String, Map<String, Object[]>> entry : coverageResults.fileCoverage().entrySet()) {
 			String filePath = entry.getKey();
 			String filteredPath = CoverageUtils.removeFirstSegment(filePath, 4);
 			if (!analysisScope.contains(filteredPath)) {
@@ -97,32 +62,33 @@ public class CoverageDataProcessor {
 			Map<String, Object[]> counters = entry.getValue();
 			Object[] counterData = getCounterData(counters, filePath);
 			if (counterData == null) {
+				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+						String.format(WARNING_NO_COUNTER_DATA, filePath, selectedCounter)));
 				continue;
 			}
 
-			List<ReportParser.FunctionCoverage> functions = dataManager.getFunctionCoverage().get(filePath);
-			List<ReportParser.LineCoverage> lines = dataManager.getCoverageData().get(filePath);
-			List<ReportParser.BranchCoverage> branches = dataManager.getBranchCoverage().get(filePath);
+			List<ReportParser.FunctionCoverage> functions = coverageResults.functionCoverage().get(filePath);
+			List<ReportParser.LineCoverage> lines = coverageResults.lineCoverage().get(filePath);
+			List<ReportParser.BranchCoverage> branches = coverageResults.branchCoverage().get(filePath);
 
 			createFileNode(filteredPath, counterData, rootNodes, folderNodes, functions, lines, branches);
 		}
 	}
 
 	private Object[] getCounterData(Map<String, Object[]> counters, String filePath) {
-		Object[] counterData;
-		if (selectedCounter.equals(LINE_COUNTERS)) {
-			counterData = counters.get(LINE_COUNTERS);
-		} else if (selectedCounter.equals(BRANCH_COUNTERS)) {
-			counterData = counters.get(BRANCH_COUNTERS);
-		} else if (selectedCounter.equals(FUNCTION_COUNTERS)) {
-			counterData = counters.get(FUNCTION_COUNTERS);
-		} else {
-			counterData = counters.get(selectedCounter);
+		Object[] counterData = counters.get(selectedCounter);
+		if (counterData == null) {
+			if (selectedCounter.equals("Счетчики функций") || selectedCounter.equals("Function Counters")) {
+				counterData = counters.get(FUNCTION_COUNTERS);
+			} else if (selectedCounter.equals("Счетчики строк") || selectedCounter.equals("Line Counters")) {
+				counterData = counters.get(LINE_COUNTERS);
+			} else if (selectedCounter.equals("Счетчики ветвлений") || selectedCounter.equals("Branch Counters")) {
+				counterData = counters.get(BRANCH_COUNTERS);
+			}
 		}
 		if (counterData == null) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
 					String.format(WARNING_NO_COUNTER_DATA, filePath, selectedCounter)));
-			return null;
 		}
 		return counterData;
 	}
@@ -154,13 +120,9 @@ public class CoverageDataProcessor {
 
 		if (functions != null) {
 			for (ReportParser.FunctionCoverage function : functions) {
-				String simpleFunctionName = function.name;
-				String mangledName = function.mangledNames != null && !function.mangledNames.isEmpty()
-						? function.mangledNames.get(0)
-						: simpleFunctionName;
-				String displayName = demangle(mangledName);
-				displayName = DemangledNameUtils.extractCleanFunctionName(displayName);
-				Object[] functionData = calculateFunctionData(function, lines, branches, displayName);
+				String displayName = function.name();
+				Object[] functionData = calculateFunctionData(function, lines != null ? lines : new ArrayList<>(),
+						branches != null ? branches : new ArrayList<>(), displayName);
 				CoverageNode functionNode = new CoverageNode(displayName, CoverageNode.NodeType.FUNCTION);
 				functionNode.setCoverageData(functionData);
 				fileNode.addChild(functionNode);
@@ -178,20 +140,21 @@ public class CoverageDataProcessor {
 	private Object[] calculateFunctionData(ReportParser.FunctionCoverage function,
 			List<ReportParser.LineCoverage> functionLines, List<ReportParser.BranchCoverage> branches,
 			String simpleFunctionName) {
-		if (selectedCounter.equals(LINE_COUNTERS)) {
+		if (selectedCounter.equals(LINE_COUNTERS) || selectedCounter.equals("Счетчики строк")
+				|| selectedCounter.equals("Line Counters")) {
 			int functionCoveredLines = 0;
 			int functionTotalLines = 0;
 
 			for (ReportParser.LineCoverage line : functionLines) {
-				if (line.lineNumber >= function.startLine && line.lineNumber <= function.endLine) {
+				if (line.lineNumber() >= function.startLine() && line.lineNumber() <= function.endLine()) {
 					functionTotalLines++;
-					if (line.executionCount > 0) {
+					if (line.executionCount() > 0) {
 						functionCoveredLines++;
 					}
 				}
 			}
 
-			if (functionTotalLines == 0 && function.executionCount > 0) {
+			if (functionTotalLines == 0 && function.executionCount() > 0) {
 				functionTotalLines = 1;
 				functionCoveredLines = 1;
 			}
@@ -199,14 +162,15 @@ public class CoverageDataProcessor {
 			double percentage = functionTotalLines > 0 ? (100.0 * functionCoveredLines / functionTotalLines) : 0.0;
 			return new Object[] { simpleFunctionName, String.format("%.2f%%", percentage), functionCoveredLines,
 					functionTotalLines - functionCoveredLines, functionTotalLines };
-		} else if (selectedCounter.equals(BRANCH_COUNTERS)) {
+		} else if (selectedCounter.equals(BRANCH_COUNTERS) || selectedCounter.equals("Счетчики ветвлений")
+				|| selectedCounter.equals("Branch Counters")) {
 			int functionTotalBranches = 0;
 			int coveredBranches = 0;
 
 			for (ReportParser.BranchCoverage branch : branches) {
-				if (branch.lineNumber >= function.startLine && branch.lineNumber <= function.endLine) {
+				if (branch.lineNumber() >= function.startLine() && branch.lineNumber() <= function.endLine()) {
 					functionTotalBranches++;
-					if (branch.covered) {
+					if (branch.covered()) {
 						coveredBranches++;
 					}
 				}
@@ -215,9 +179,10 @@ public class CoverageDataProcessor {
 			double percentage = functionTotalBranches > 0 ? (100.0 * coveredBranches / functionTotalBranches) : 0.0;
 			return new Object[] { simpleFunctionName, String.format("%.2f%%", percentage), coveredBranches,
 					functionTotalBranches - coveredBranches, functionTotalBranches };
-		} else if (selectedCounter.equals(FUNCTION_COUNTERS)) {
+		} else if (selectedCounter.equals(FUNCTION_COUNTERS) || selectedCounter.equals("Счетчики функций")
+				|| selectedCounter.equals("Function Counters")) {
 			int functionTotalFunctions = 1;
-			int functionCoveredFunctions = function.executionCount > 0 ? 1 : 0;
+			int functionCoveredFunctions = function.executionCount() > 0 ? 1 : 0;
 			double percentage = functionTotalFunctions > 0 ? (100.0 * functionCoveredFunctions / functionTotalFunctions)
 					: 0.0;
 			return new Object[] { simpleFunctionName, String.format("%.2f%%", percentage), functionCoveredFunctions,

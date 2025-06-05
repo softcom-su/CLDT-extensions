@@ -23,9 +23,6 @@ public class CoverageSettingsManager {
 			"coverage_report.lcov");
 	private static final String DEFAULT_LLVM_COV = "llvm-cov";
 	private static final String DEFAULT_LLVM_PROFDATA = "llvm-profdata";
-	private static final String WARNING_DELETE_PROFILE_FILE = "Failed to delete profile file: %s";
-	private static final String WARNING_INVALID_LLVM_COV_PATH = "Invalid llvm-cov path: %s";
-	private static final String WARNING_INVALID_LLVM_PROFDATA_PATH = "Invalid llvm-profdata path: %s";
 	private static final List<Runnable> settingsChangeListeners = new ArrayList<>();
 
 	private CoverageSettingsManager() {
@@ -36,8 +33,8 @@ public class CoverageSettingsManager {
 			Path filePath = Paths.get(coverageDataDir, fileName);
 			File file = filePath.toFile();
 			if (file.exists() && !file.delete()) {
-				LOGGER.log(
-						new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_DELETE_PROFILE_FILE, filePath)));
+				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+						String.format("Failed to delete profile file: %s", filePath)));
 			}
 		}
 	}
@@ -51,8 +48,8 @@ public class CoverageSettingsManager {
 			Path resolvedPath = Paths.get(llvmCovPath).toAbsolutePath().normalize();
 			return resolvedPath.toString();
 		} catch (Exception e) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_LLVM_COV_PATH, llvmCovPath),
-					e));
+			LOGGER.log(
+					new Status(IStatus.WARNING, PLUGIN_ID, String.format("Invalid llvm-cov path: %s", llvmCovPath), e));
 			return DEFAULT_LLVM_COV;
 		}
 	}
@@ -67,7 +64,7 @@ public class CoverageSettingsManager {
 			return resolvedPath.toString();
 		} catch (Exception e) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-					String.format(WARNING_INVALID_LLVM_PROFDATA_PATH, llvmProfdataPath), e));
+					String.format("Invalid llvm-profdata path: %s", llvmProfdataPath), e));
 			return DEFAULT_LLVM_PROFDATA;
 		}
 	}

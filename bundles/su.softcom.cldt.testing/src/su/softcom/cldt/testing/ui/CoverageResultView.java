@@ -1,5 +1,6 @@
 package su.softcom.cldt.testing.ui;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -8,19 +9,22 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.viewers.CellLabelProvider;
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.TreeViewerColumn;
 import org.eclipse.jface.viewers.ViewerCell;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.Clipboard;
+import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Tree;
-import org.eclipse.ui.IPartListener;
-import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.part.ViewPart;
-import org.eclipse.ui.texteditor.ITextEditor;
 import su.softcom.cldt.testing.core.CoverageDataProcessor;
 import su.softcom.cldt.testing.core.CoverageSettingsManager;
 import su.softcom.cldt.testing.core.ReportParser;
@@ -28,18 +32,10 @@ import su.softcom.cldt.testing.core.ReportParser;
 public class CoverageResultView extends ViewPart {
 	public static final String ID = "su.softcom.cldt.testing.ui.CoverageResultView";
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
-	private static final String LINE_COUNTERS = Messages.CoverageResultView_1;
-	private static final String BRANCH_COUNTERS = Messages.CoverageResultView_2;
-	private static final String FUNCTION_COUNTERS = Messages.CoverageResultView_3;
-	private static final String WARNING_NULL_DISPOSED = "Cannot %s: treeViewer is null or disposed";
-	private static final String WARNING_NULL_DATA_PROVIDER = "Cannot refresh: both coverageData and dataProvider are null";
-	private static final String WARNING_NULL_DATA = "Cannot refresh: dataProvider returned null coverage data";
-	private static final String WARNING_NULL_PROJECT = "Cannot refresh: project is null";
-	private static final String WARNING_FILE_NOT_FOUND = "File does not exist: %s";
 	private static final ILog LOGGER = Platform.getLog(CoverageResultView.class);
 
 	private TreeViewer treeViewer;
-	private String selectedCounter = LINE_COUNTERS;
+	private String selectedCounter = Messages.CoverageResultView_1;
 	private CoverageDataProvider dataProvider;
 	private List<String> analysisScope;
 	private ReportParser.CoverageResult currentCoverageData;
@@ -47,7 +43,6 @@ public class CoverageResultView extends ViewPart {
 	private List<CoverageNode> currentTreeNodes;
 	private CoverageDataProcessor dataProcessor;
 	private AnnotationUpdater annotationUpdater;
-	private final IPartListener editorPartListener = new EditorPartListener();
 
 	@Override
 	public void createPartControl(Composite parent) {
@@ -57,32 +52,8 @@ public class CoverageResultView extends ViewPart {
 		setupTreeViewer(parent);
 		createColumns();
 		configureMenu();
-		getViewSite().getPage().addPartListener(editorPartListener);
-	}
-
-	private class EditorPartListener implements IPartListener {
-		@Override
-		public void partOpened(IWorkbenchPart part) {
-			if (part instanceof ITextEditor editor) {
-				annotationUpdater.updateAnnotations(editor);
-			}
-		}
-
-		@Override
-		public void partActivated(IWorkbenchPart part) {
-		}
-
-		@Override
-		public void partBroughtToTop(IWorkbenchPart part) {
-		}
-
-		@Override
-		public void partClosed(IWorkbenchPart part) {
-		}
-
-		@Override
-		public void partDeactivated(IWorkbenchPart part) {
-		}
+		configureContextMenu();
+		getViewSite().getPage().addPartListener(new AnnotationUpdateListener(annotationUpdater));
 	}
 
 	private void setupTreeViewer(Composite parent) {
@@ -140,76 +111,65 @@ public class CoverageResultView extends ViewPart {
 	}
 
 	private void createCounterColumns() {
-		String[] columnNames = SelectCountersAction.getColumnNamesForCounter(selectedCounter);
+		String[] columnNames = CoverageMetricAction.getColumnNamesForCounter(selectedCounter);
 		int[] columnWidths = { 250, 150, 150, 150 };
 		for (int i = 0; i < columnNames.length; i++) {
-			SelectCountersAction.createColumn(treeViewer, columnNames[i], columnWidths[i], i + 1);
+			CoverageMetricAction.createColumn(treeViewer, columnNames[i], columnWidths[i], i + 1);
 		}
 	}
 
 	private void configureMenu() {
 		var menuManager = getViewSite().getActionBars().getMenuManager();
-		menuManager.add(new SelectCountersAction(this, LINE_COUNTERS));
-		menuManager.add(new SelectCountersAction(this, BRANCH_COUNTERS));
-		menuManager.add(new SelectCountersAction(this, FUNCTION_COUNTERS));
+		menuManager.add(new CoverageMetricAction(this, Messages.CoverageResultView_1));
+		menuManager.add(new CoverageMetricAction(this, Messages.CoverageResultView_2));
+		menuManager.add(new CoverageMetricAction(this, Messages.CoverageResultView_3));
 	}
 
-	private class SelectCountersAction extends Action {
-		private final String counter;
+	private void configureContextMenu() {
+		MenuManager menuManager = new MenuManager();
+		menuManager.setRemoveAllWhenShown(true);
+		menuManager.addMenuListener(this::fillContextMenu);
+		Menu menu = menuManager.createContextMenu(treeViewer.getTree());
+		treeViewer.getTree().setMenu(menu);
+		getSite().registerContextMenu(menuManager, treeViewer);
+	}
 
-		public SelectCountersAction(CoverageResultView view, String counter) {
-			super(counter, AS_RADIO_BUTTON);
-			this.counter = counter;
-			setChecked(view.selectedCounter.equals(counter));
-		}
-
-		@Override
-		public void run() {
-			if (!selectedCounter.equals(counter)) {
-				selectedCounter = counter;
-				dataProcessor.setSelectedCounter(counter);
-				annotationUpdater.setCurrentMetric(counter);
-				refreshColumns();
-				updateTreeWithNewMetrics();
-				annotationUpdater.updateOpenEditors();
-			}
-		}
-
-		public static String[] getColumnNamesForCounter(String counterType) {
-			if (BRANCH_COUNTERS.equals(counterType)) {
-				return new String[] { Messages.CoverageResultView_5, Messages.CoverageResultView_6,
-						Messages.CoverageResultView_7, Messages.CoverageResultView_8 };
-			}
-			if (LINE_COUNTERS.equals(counterType)) {
-				return new String[] { Messages.CoverageResultView_9, Messages.CoverageResultView_10,
-						Messages.CoverageResultView_11, Messages.CoverageResultView_12 };
-			}
-			if (FUNCTION_COUNTERS.equals(counterType)) {
-				return new String[] { Messages.CoverageResultView_13, Messages.CoverageResultView_14,
-						Messages.CoverageResultView_15, Messages.CoverageResultView_16 };
-			}
-			return new String[] {};
-		}
-
-		public static void createColumn(TreeViewer treeViewer, String title, int width, int index) {
-			TreeViewerColumn column = new TreeViewerColumn(treeViewer, SWT.NONE);
-			column.getColumn().setText(title);
-			column.getColumn().setWidth(width);
-			column.setLabelProvider(new CellLabelProvider() {
-				@Override
-				public void update(ViewerCell cell) {
-					if (cell.getElement() instanceof CoverageNode node && node.getCoverageData() != null) {
-						Object[] data = node.getCoverageData();
-						cell.setText(data.length > index ? data[index].toString() : "");
-					}
+	private void fillContextMenu(IMenuManager manager) {
+		manager.add(new Action("Копировать") {
+			@Override
+			public void run() {
+				Object[] selectedElements = treeViewer.getStructuredSelection().toArray();
+				if (selectedElements.length > 0 && selectedElements[0] instanceof CoverageNode node) {
+					String text = collectNodeText(node);
+					copyToClipboard(text);
 				}
-			});
-		}
+			}
+		});
 	}
 
-	private void refreshColumns() {
+	private String collectNodeText(CoverageNode node) {
+		StringBuilder builder = new StringBuilder();
+		builder.append(node.getName());
+		if (!node.getChildren().isEmpty()) {
+			builder.append("\n");
+			for (CoverageNode child : node.getChildren()) {
+				builder.append(collectNodeText(child)).append("\n");
+			}
+		}
+		return builder.toString().trim();
+	}
+
+	private void copyToClipboard(String text) {
+		Clipboard clipboard = new Clipboard(treeViewer.getTree().getDisplay());
+		TextTransfer textTransfer = TextTransfer.getInstance();
+		clipboard.setContents(new Object[] { text }, new Transfer[] { textTransfer });
+		clipboard.dispose();
+	}
+
+	void refreshColumns() {
 		if (treeViewer == null || treeViewer.getTree().isDisposed()) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_NULL_DISPOSED, "refresh columns")));
+			LOGGER.log(
+					new Status(IStatus.WARNING, PLUGIN_ID, "Cannot refresh columns: treeViewer is null or disposed"));
 			return;
 		}
 		treeViewer.getTree().setRedraw(false);
@@ -223,18 +183,25 @@ public class CoverageResultView extends ViewPart {
 		List<String> filteredScope = project != null
 				? CoverageSettingsManager.filterAnalysisScope(analysisScope, project)
 				: analysisScope;
-		this.analysisScope = filteredScope;
+		List<String> normalizedScope = new ArrayList<>();
+		String projectPath = project != null ? project.getLocation().toOSString() + "/" : "";
+		for (String path : filteredScope) {
+			String normalizedPath = path.replace('\\', '/');
+			normalizedScope.add(normalizedPath);
+			normalizedScope.add(projectPath + normalizedPath);
+		}
+		this.analysisScope = normalizedScope;
 
 		if (treeViewer == null || treeViewer.getTree().isDisposed()) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-					String.format(WARNING_NULL_DISPOSED, "update coverage results")));
+					"Cannot update coverage results: treeViewer is null or disposed"));
 			return;
 		}
 
 		CoverageDataManager.getInstance().setCoverageData(coverageResults, this.analysisScope);
 
 		Object[] expandedElements = treeViewer.getExpandedElements();
-		currentTreeNodes = dataProcessor.buildCoverageTree(coverageResults, filteredScope);
+		currentTreeNodes = dataProcessor.buildCoverageTree(coverageResults, normalizedScope);
 		treeViewer.setInput(currentTreeNodes);
 		treeViewer.setExpandedElements(expandedElements);
 		treeViewer.refresh();
@@ -242,19 +209,17 @@ public class CoverageResultView extends ViewPart {
 		annotationUpdater.setCurrentMetric(selectedCounter);
 		annotationUpdater.updateOpenEditors();
 
-		for (String filePath : filteredScope) {
+		for (String filePath : normalizedScope) {
 			IFile file = project.getFile(filePath);
-			if (file.exists()) {
-				annotationUpdater.createCoverageMarkers(file);
-			} else {
-				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_FILE_NOT_FOUND, filePath)));
+			if (!file.exists()) {
+				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "File does not exist: " + filePath));
 			}
 		}
 	}
 
-	private void updateTreeWithNewMetrics() {
+	void updateTreeWithNewMetrics() {
 		if (treeViewer == null || treeViewer.getTree().isDisposed() || currentCoverageData == null) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_NULL_DISPOSED, "update tree")));
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Cannot update tree: treeViewer is null or disposed"));
 			return;
 		}
 
@@ -279,25 +244,27 @@ public class CoverageResultView extends ViewPart {
 
 	public void refresh() {
 		if (treeViewer == null || treeViewer.getTree().isDisposed()) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_NULL_DISPOSED, "refresh")));
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Cannot refresh: treeViewer is null or disposed"));
 			return;
 		}
 
 		if (currentCoverageData == null && dataProvider != null) {
 			currentCoverageData = dataProvider.getFullCoverageData();
 			if (currentCoverageData == null) {
-				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_NULL_DATA));
+				LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+						"Cannot refresh: dataProvider returned null coverage data"));
 				return;
 			}
 		}
 
 		if (currentCoverageData == null) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_NULL_DATA_PROVIDER));
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+					"Cannot refresh: both coverageData and dataProvider are null"));
 			return;
 		}
 
 		if (project == null) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_NULL_PROJECT));
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Cannot refresh: project is null"));
 			return;
 		}
 
@@ -307,7 +274,7 @@ public class CoverageResultView extends ViewPart {
 
 	@Override
 	public void dispose() {
-		getViewSite().getPage().removePartListener(editorPartListener);
+		getViewSite().getPage().removePartListener(new AnnotationUpdateListener(annotationUpdater));
 		super.dispose();
 	}
 
@@ -316,6 +283,22 @@ public class CoverageResultView extends ViewPart {
 		if (treeViewer != null && !treeViewer.getTree().isDisposed()) {
 			treeViewer.getTree().setFocus();
 		}
+	}
+
+	public String getSelectedCounter() {
+		return selectedCounter;
+	}
+
+	public void setSelectedCounter(String counter) {
+		this.selectedCounter = counter;
+	}
+
+	public CoverageDataProcessor getDataProcessor() {
+		return dataProcessor;
+	}
+
+	public AnnotationUpdater getAnnotationUpdater() {
+		return annotationUpdater;
 	}
 
 	public interface CoverageDataProvider {

@@ -2,7 +2,9 @@ package su.softcom.cldt.testing.core;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.runtime.Status;
 
@@ -14,14 +16,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class CoveragePropertySettings {
+	private static final ILog LOGGER = Platform.getLog(CoveragePropertySettings.class);
 	private static final String PLUGIN_ID = Activator.PLUGIN_ID;
 	private static final QualifiedName COVERAGE_DATA_DIR = new QualifiedName(PLUGIN_ID, "coverage.data_dir");
 	private static final String DEFAULT_BUILD_DIR = "build";
-	private static final String WARNING_DEFAULT_BUILD_DIR = "Failed to get default build folder, using '%s'";
-	private static final String WARNING_RELATIVE_PATH = "Failed to convert to relative path: %s";
-	private static final String WARNING_ABSOLUTE_PATH = "Failed to convert to absolute path: %s";
-	private static final String ERROR_INVALID_DIR = "Coverage Data Directory does not exist or is not a directory";
-	private static final String ERROR_DIR_OUTSIDE_PROJECT = "Coverage Data Directory must be inside the project";
 
 	private CoveragePropertySettings() {
 	}
@@ -41,7 +39,8 @@ public class CoveragePropertySettings {
 			String absolutePath = cmakeProject.getBuildFolder().getLocation().toOSString();
 			return toRelativePath(project, absolutePath);
 		} catch (Exception e) {
-			logWarning(String.format(WARNING_DEFAULT_BUILD_DIR, DEFAULT_BUILD_DIR), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+					String.format("Failed to get default build folder, using '%s'", DEFAULT_BUILD_DIR), e));
 			return DEFAULT_BUILD_DIR;
 		}
 	}
@@ -54,7 +53,8 @@ public class CoveragePropertySettings {
 				return projectPath.relativize(absPath).toString().replace('\\', '/');
 			}
 		} catch (Exception e) {
-			logWarning(String.format(WARNING_RELATIVE_PATH, absolutePath), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+					String.format("Failed to convert to relative path: %s", absolutePath), e));
 		}
 		return absolutePath;
 	}
@@ -67,7 +67,8 @@ public class CoveragePropertySettings {
 			Path projectPath = Paths.get(project.getLocation().toOSString()).toAbsolutePath().normalize();
 			return projectPath.resolve(relativePath).normalize().toString();
 		} catch (Exception e) {
-			logWarning(String.format(WARNING_ABSOLUTE_PATH, relativePath), e);
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
+					String.format("Failed to convert to absolute path: %s", relativePath), e));
 			return relativePath;
 		}
 	}
@@ -87,18 +88,14 @@ public class CoveragePropertySettings {
 		if (!coverageDataDir.isEmpty()) {
 			File dir = new File(toAbsolutePath(project, coverageDataDir));
 			if (!dir.exists() || !dir.isDirectory()) {
-				return ERROR_INVALID_DIR;
+				return "Coverage Data Directory does not exist or is not a directory";
 			}
 			Path projectPath = Paths.get(project.getLocation().toOSString()).toAbsolutePath().normalize();
 			Path dirPath = dir.toPath().toAbsolutePath().normalize();
 			if (!dirPath.startsWith(projectPath)) {
-				return ERROR_DIR_OUTSIDE_PROJECT;
+				return "Coverage Data Directory must be inside the project";
 			}
 		}
 		return null;
-	}
-
-	private static void logWarning(String message, Throwable cause) {
-		Activator.getDefault().getLog().log(new Status(IStatus.WARNING, PLUGIN_ID, message, cause));
 	}
 }
