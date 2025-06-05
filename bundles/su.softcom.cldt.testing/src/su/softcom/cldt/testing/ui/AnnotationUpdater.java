@@ -208,15 +208,15 @@ public class AnnotationUpdater {
 		if (methods != null && !methods.isEmpty()) {
 			for (ReportParser.MethodCoverage method : methods) {
 				CoverageAnnotation annotation = createMethodAnnotation(method);
-				addAnnotationToModel(model, editor, method.startLine, annotation);
+				addAnnotationToModel(model, editor, method.signatureLine, annotation);
 			}
 		}
 	}
 
 	private CoverageAnnotation createMethodAnnotation(ReportParser.MethodCoverage method) {
-		String type = method.executionCount == 0 ? CoverageAnnotation.TYPE_NOT_COVERED_FUNCTION
-				: CoverageAnnotation.TYPE_COVERED_FUNCTION;
-		String message = String.format("Method %s at line %d: %s", method.name, method.startLine,
+		String type = method.executionCount == 0 ? CoverageAnnotation.TYPE_NOT_COVERED_METHOD
+				: CoverageAnnotation.TYPE_COVERED_METHOD;
+		String message = String.format("Method %s at line %d: %s", method.name, method.signatureLine,
 				method.executionCount == 0 ? "Not covered" : "Covered");
 		return new CoverageAnnotation(type, message);
 	}
@@ -259,7 +259,7 @@ public class AnnotationUpdater {
 		}
 	}
 
-	public void createCoverageMarkers(IFile file) {
+	public synchronized void createCoverageMarkers(IFile file) {
 		if (dataManager.getCoverageData() == null) {
 			return;
 		}
@@ -363,14 +363,22 @@ public class AnnotationUpdater {
 				dataManager.getMethodCoverage());
 		if (methods != null && !methods.isEmpty()) {
 			for (ReportParser.MethodCoverage method : methods) {
-				String message = String.format("Method %s at line %d: %s", method.name, method.startLine,
+				String message = String.format("Method %s at line %d: %s", method.name, method.signatureLine,
 						method.executionCount == 0 ? "Not Covered" : "Covered");
-				createMarker(file, method.startLine, message);
+				createMarker(file, method.signatureLine, message);
 			}
 		}
 	}
 
 	private void createMarker(IFile file, int lineNumber, String message) throws CoreException {
+		IMarker[] existingMarkers = file.findMarkers(MARKER_TYPE, true, IResource.DEPTH_INFINITE);
+		for (IMarker marker : existingMarkers) {
+			if (marker.getAttribute(IMarker.LINE_NUMBER, -1) == lineNumber) {
+				marker.setAttribute(IMarker.MESSAGE, message);
+				return;
+			}
+		}
+
 		IMarker marker = file.createMarker(MARKER_TYPE);
 		marker.setAttribute(IMarker.LINE_NUMBER, lineNumber);
 		marker.setAttribute(IMarker.MESSAGE, message);
