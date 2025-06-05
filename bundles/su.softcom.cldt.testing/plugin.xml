@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?eclipse version="3.4"?>
 <plugin>
-	<extension point="org.eclipse.ui.preferencePages">
-	    <page
-	        class="su.softcom.cldt.testing.ui.CoveragePreferencePage"
-	        id="su.softcom.cldt.testing.coveragePreferencePage"
-	        name="%page.name">
-	    </page>
-	</extension>
+    <extension point="org.eclipse.ui.preferencePages">
+        <page
+            class="su.softcom.cldt.testing.ui.CoveragePreferencePage"
+            id="su.softcom.cldt.testing.coveragePreferencePage"
+            name="%page.name">
+        </page>
+    </extension>
+    
+    <extension point="org.eclipse.ui.propertyPages">
+        <page
+            id="su.softcom.cldt.testing.coveragePropertyPage"
+            name="Code Coverage"
+            class="su.softcom.cldt.testing.ui.CoveragePropertyPage">
+            <enabledWhen>
+                <adapt type="org.eclipse.core.resources.IProject"/>
+            </enabledWhen>
+        </page>
+    </extension>
    
     <extension point="org.eclipse.debug.ui.launchConfigurationTabGroups">
         <launchConfigurationTabGroup
@@ -27,11 +38,175 @@
     </extension>
     
     <extension point="org.eclipse.ui.views">
-	    <view
-	        id="su.softcom.cldt.testing.ui.CoverageResultView"
-	        name="%view.name"
-	        class="su.softcom.cldt.testing.ui.CoverageResultView"
-	        category="org.eclipse.ui.category.views">
-	    </view>
-	</extension>
+        <view
+            id="su.softcom.cldt.testing.ui.CoverageResultView"
+            name="%view.name"
+            class="su.softcom.cldt.testing.ui.CoverageResultView"
+            category="org.eclipse.ui.category.views">
+        </view>
+    </extension>
+    
+    <extension point="org.eclipse.ui.editors.annotationTypes">
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.covered.line"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.not_covered.line"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.partially_covered.line"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.covered.branch"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.not_covered.branch"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.partially_covered.branch"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.covered.function"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.not_covered.function"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+        <annotationType
+            name="su.softcom.cldt.testing.coverage.partially_covered.function"
+            superType="org.eclipse.ui.workbench.texteditor.text">
+        </annotationType>
+    </extension>
+
+    <extension point="org.eclipse.ui.editors.markerAnnotationSpecification">
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.covered.line"
+            label="Covered Line"
+            textPreferenceKey="coverage.covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.covered.color"
+            colorPreferenceValue="152,251,152,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.not_covered.line"
+            label="Not Covered Line"
+            textPreferenceKey="coverage.not_covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.not_covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.not_covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.not_covered.color"
+            colorPreferenceValue="240,128,128,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.partially_covered.line"
+            label="Partially Covered Line"
+            textPreferenceKey="coverage.partially_covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.partially_covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.partially_covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.partially_covered.color"
+            colorPreferenceValue="255,255,0,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.covered.branch"
+            label="Covered Branch"
+            textPreferenceKey="coverage.covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.covered.color"
+            colorPreferenceValue="152,251,152,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.not_covered.branch"
+            label="Not Covered Branch"
+            textPreferenceKey="coverage.not_covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.not_covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.not_covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.not_covered.color"
+            colorPreferenceValue="240,128,128,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.partially_covered.branch"
+            label="Partially Covered Branch"
+            textPreferenceKey="coverage.partially_covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.partially_covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.partially_covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.partially_covered.color"
+            colorPreferenceValue="255,255,0,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.covered.function"
+            label="Covered Function"
+            textPreferenceKey="coverage.covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.covered.color"
+            colorPreferenceValue="152,251,152,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.not_covered.function"
+            label="Not Covered Function"
+            textPreferenceKey="coverage.not_covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.not_covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.not_covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.not_covered.color"
+            colorPreferenceValue="240,128,128,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+        <specification
+            annotationType="su.softcom.cldt.testing.coverage.partially_covered.function"
+            label="Partially Covered Function"
+            textPreferenceKey="coverage.partially_covered.text"
+            textPreferenceValue="true"
+            highlightPreferenceKey="coverage.partially_covered.highlight"
+            highlightPreferenceValue="true"
+            overviewRulerPreferenceKey="coverage.partially_covered.overview"
+            overviewRulerPreferenceValue="true"
+            colorPreferenceKey="coverage.partially_covered.color"
+            colorPreferenceValue="255,255,0,100"
+            textStylePreferenceValue="BOX">
+        </specification>
+    </extension>
+
+    <extension
+        id="su.softcom.cldt.testing.markers.coverage"
+        point="org.eclipse.core.resources.markers">
+    </extension>
 </plugin>

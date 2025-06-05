@@ -1,7 +1,6 @@
 package su.softcom.cldt.testing.ui;
 
 import static org.eclipse.swt.events.SelectionListener.widgetSelectedAdapter;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -38,7 +37,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
-
 import su.softcom.cldt.core.CMakeCorePlugin;
 import su.softcom.cldt.core.cmake.ICMakeProject;
 import su.softcom.cldt.core.cmake.Target;
@@ -46,49 +44,77 @@ import su.softcom.cldt.testing.utils.CoverageUtils;
 import su.softcom.cldt.ui.dialogs.ProjectSelectionDialog;
 
 public class CoverageTab extends AbstractLaunchConfigurationTab {
-
 	private static final Logger LOGGER = Logger.getLogger(CoverageTab.class.getName());
-
 	private static final String PROJECT_NAME_KEY = "projectName";
 	private static final String TARGET_NAME_KEY = "targetName";
 	private static final String ANALYSIS_SCOPE_KEY = "analysisScope";
+	private static final Set<String> EXCLUDED_FILES_AND_FOLDERS = new HashSet<>(
+			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md"));
+	private static final Set<String> ALLOWED_EXTENSIONS = Set.of("cpp", "h", "c", "hpp");
 
 	private Text projectText;
 	private ComboViewer targetComboViewer;
 	private Combo targetCombo;
 	private CheckboxTableViewer tableViewer;
 
-	private static final Set<String> EXCLUDED_FILES_AND_FOLDERS = new HashSet<>(
-			Arrays.asList("build", "tests", ".project", ".settings", "CMakeLists.txt", "README.md"));
-
 	@Override
 	public void createControl(Composite parent) {
 		Composite composite = new Composite(parent, SWT.NONE);
 		composite.setLayout(new GridLayout(1, false));
-
 		createProjectField(composite);
 		createTargetField(composite);
 		createFileSelectionTable(composite);
-
 		setControl(composite);
 	}
 
 	private void createProjectField(Composite parent) {
-		Group projectGroup = new Group(parent, SWT.NONE);
-		projectGroup.setLayout(new GridLayout(2, false));
-		projectGroup.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-		projectGroup.setText(Messages.CoverageTab_6);
-
-		projectText = new Text(projectGroup, SWT.BORDER);
-		projectText.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+		Group projectGroup = createGroup(parent, Messages.CoverageTab_6, 2);
+		projectText = createTextField(projectGroup);
 		projectText.addModifyListener(event -> {
 			updateLaunchConfigurationDialog();
 			updateTargets();
 		});
+		createProjectButton(projectGroup);
+	}
 
-		Button projectButton = new Button(projectGroup, SWT.PUSH);
-		projectButton.setText(Messages.CoverageTab_7);
-		projectButton.addSelectionListener(widgetSelectedAdapter(e -> {
+	private void createTargetField(Composite parent) {
+		Group targetGroup = createGroup(parent, Messages.CoverageTab_9, 1);
+		targetComboViewer = new ComboViewer(targetGroup, SWT.READ_ONLY);
+		targetCombo = targetComboViewer.getCombo();
+		targetCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+		setupTargetComboViewer();
+		targetCombo.addSelectionListener(widgetSelectedAdapter(e -> updateLaunchConfigurationDialog()));
+	}
+
+	private void createFileSelectionTable(Composite parent) {
+		Group filesGroup = createGroup(parent, Messages.CoverageTab_10, 1);
+		Label fileLabel = new Label(filesGroup, SWT.NONE);
+		fileLabel.setText(Messages.CoverageTab_11);
+		fileLabel.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+		tableViewer = CheckboxTableViewer.newCheckList(filesGroup, SWT.BORDER);
+		tableViewer.getTable().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		tableViewer.setContentProvider(ArrayContentProvider.getInstance());
+		tableViewer.addCheckStateListener(event -> updateLaunchConfigurationDialog());
+	}
+
+	private Group createGroup(Composite parent, String text, int columns) {
+		Group group = new Group(parent, SWT.NONE);
+		group.setLayout(new GridLayout(columns, false));
+		group.setLayoutData(new GridData(SWT.FILL, columns == 1 ? SWT.FILL : SWT.TOP, true, false));
+		group.setText(text);
+		return group;
+	}
+
+	private Text createTextField(Group parent) {
+		Text text = new Text(parent, SWT.BORDER);
+		text.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+		return text;
+	}
+
+	private void createProjectButton(Group parent) {
+		Button button = new Button(parent, SWT.PUSH);
+		button.setText(Messages.CoverageTab_7);
+		button.addSelectionListener(widgetSelectedAdapter(e -> {
 			ProjectSelectionDialog dialog = new ProjectSelectionDialog(getShell());
 			dialog.setInput(ResourcesPlugin.getWorkspace().getRoot());
 			dialog.setTitle(Messages.CoverageTab_8);
@@ -102,61 +128,31 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 		}));
 	}
 
-	private void createTargetField(Composite parent) {
-		Group targetGroup = new Group(parent, SWT.NONE);
-		targetGroup.setLayout(new GridLayout(1, false));
-		targetGroup.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
-		targetGroup.setText(Messages.CoverageTab_9);
-
-		targetComboViewer = new ComboViewer(targetGroup, SWT.READ_ONLY);
-		targetCombo = targetComboViewer.getCombo();
-		targetCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-		targetComboViewer.setContentProvider((IStructuredContentProvider) input -> {
-			if (input instanceof List<?>) {
-				return ((List<?>) input).toArray();
-			}
-			return new Object[0];
-		});
+	private void setupTargetComboViewer() {
+		targetComboViewer.setContentProvider(
+				(IStructuredContentProvider) input -> input instanceof List<?> list ? list.toArray() : new Object[0]);
 		targetComboViewer.setLabelProvider(new LabelProvider() {
 			@Override
 			public String getText(Object element) {
-				if (element instanceof Target target) {
-					return target.getName();
-				}
-				return super.getText(element);
+				return element instanceof Target target ? target.getName() : super.getText(element);
 			}
 		});
-		targetCombo.addSelectionListener(widgetSelectedAdapter(e -> updateLaunchConfigurationDialog()));
-	}
-
-	private void createFileSelectionTable(Composite parent) {
-		Group filesGroup = new Group(parent, SWT.NONE);
-		filesGroup.setLayout(new GridLayout(1, false));
-		filesGroup.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		filesGroup.setText(Messages.CoverageTab_10);
-
-		Label fileLabel = new Label(filesGroup, SWT.NONE);
-		fileLabel.setText(Messages.CoverageTab_11);
-		fileLabel.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
-
-		tableViewer = CheckboxTableViewer.newCheckList(filesGroup, SWT.BORDER);
-		tableViewer.getTable().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		tableViewer.setContentProvider(ArrayContentProvider.getInstance());
-		tableViewer.addCheckStateListener(event -> updateLaunchConfigurationDialog());
 	}
 
 	private void updateTargets() {
 		String projectName = projectText.getText();
-		if (!projectName.isBlank()) {
-			ICMakeProject cmakeProject = CMakeCorePlugin.getDefault().getProject(projectName);
-			if (cmakeProject != null) {
-				List<Target> targets = cmakeProject.getTargets();
-				targetComboViewer.setInput(targets);
-				populateFileList(cmakeProject.getProject());
-			} else {
-				targetComboViewer.setInput(null);
-				tableViewer.setInput(null);
-			}
+		if (projectName.isBlank()) {
+			targetComboViewer.setInput(null);
+			tableViewer.setInput(null);
+			return;
+		}
+		ICMakeProject cmakeProject = CMakeCorePlugin.getDefault().getProject(projectName);
+		if (cmakeProject != null) {
+			targetComboViewer.setInput(cmakeProject.getTargets());
+			populateFileList(cmakeProject.getProject());
+		} else {
+			targetComboViewer.setInput(null);
+			tableViewer.setInput(null);
 		}
 	}
 
@@ -172,25 +168,20 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 	}
 
 	private void collectFiles(IResource resource, List<String> files) throws CoreException {
-		if (resource.getName().startsWith(".")) {
+		if (resource.getName().startsWith(".") || EXCLUDED_FILES_AND_FOLDERS.contains(resource.getName())) {
 			return;
 		}
-
-		if (EXCLUDED_FILES_AND_FOLDERS.contains(resource.getName())) {
-			return;
-		}
-		if (resource instanceof IFile) {
-			String extension = resource.getFileExtension();
-			Set<String> allowedExtensions = Set.of("cpp", "h", "c", "hpp");
-			if (extension != null && allowedExtensions.contains(extension.toLowerCase())) {
-				files.add(resource.getFullPath().toString());
+		if (resource instanceof IFile file) {
+			String extension = file.getFileExtension();
+			if (extension != null && ALLOWED_EXTENSIONS.contains(extension.toLowerCase())) {
+				files.add(file.getFullPath().toString());
 			}
-		} else if (resource instanceof IProject iproject) {
-			for (IResource member : iproject.members()) {
+		} else if (resource instanceof IProject project) {
+			for (IResource member : project.members()) {
 				collectFiles(member, files);
 			}
-		} else if (resource instanceof IFolder ifolder) {
-			for (IResource member : ifolder.members()) {
+		} else if (resource instanceof IFolder folder) {
+			for (IResource member : folder.members()) {
 				collectFiles(member, files);
 			}
 		}
@@ -209,10 +200,8 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 			String projectName = configuration.getAttribute(PROJECT_NAME_KEY, getCurrentProject());
 			projectText.setText(projectName);
 			updateTargets();
-
 			String targetName = configuration.getAttribute(TARGET_NAME_KEY, "");
 			targetCombo.setText(targetName);
-
 			List<String> savedScope = configuration.getAttribute(ANALYSIS_SCOPE_KEY, new ArrayList<>());
 			tableViewer.setCheckedElements(savedScope.toArray());
 		} catch (CoreException e) {
@@ -224,10 +213,8 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 	public void performApply(ILaunchConfigurationWorkingCopy configuration) {
 		configuration.setAttribute(PROJECT_NAME_KEY, projectText.getText());
 		configuration.setAttribute(TARGET_NAME_KEY, targetCombo.getText());
-
 		List<String> analysisScope = new ArrayList<>();
-		Object[] checkedElements = tableViewer.getCheckedElements();
-		for (Object element : checkedElements) {
+		for (Object element : tableViewer.getCheckedElements()) {
 			analysisScope.add(element.toString());
 		}
 		configuration.setAttribute(ANALYSIS_SCOPE_KEY, analysisScope);
@@ -240,15 +227,15 @@ public class CoverageTab extends AbstractLaunchConfigurationTab {
 
 	public static String getCurrentProject() {
 		IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-		if (window != null) {
-			ISelection selection = window.getSelectionService().getSelection();
-			if (selection instanceof IStructuredSelection istructuredselection) {
-				Object element = istructuredselection.getFirstElement();
-				if (element instanceof IAdaptable iadaptable) {
-					IProject project = iadaptable.getAdapter(IProject.class);
-					if (project != null) {
-						return project.getName();
-					}
+		if (window == null)
+			return "";
+		ISelection selection = window.getSelectionService().getSelection();
+		if (selection instanceof IStructuredSelection structuredSelection) {
+			Object element = structuredSelection.getFirstElement();
+			if (element instanceof IAdaptable adaptable) {
+				IProject project = adaptable.getAdapter(IProject.class);
+				if (project != null) {
+					return project.getName();
 				}
 			}
 		}
