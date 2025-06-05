@@ -16,7 +16,7 @@ public class CoverageDataManager {
 	private static final ILog LOGGER = Platform.getLog(CoverageDataManager.class);
 	private Map<String, List<ReportParser.LineCoverage>> lineCoverage;
 	private Map<String, List<ReportParser.BranchCoverage>> branchCoverage;
-	private Map<String, List<ReportParser.MethodCoverage>> methodCoverage;
+	private Map<String, List<ReportParser.FunctionCoverage>> functionCoverage;
 	private List<String> analysisScope;
 
 	private CoverageDataManager() {
@@ -30,7 +30,7 @@ public class CoverageDataManager {
 	public void setCoverageData(ReportParser.CoverageResult coverageResult, List<String> analysisScope) {
 		lineCoverage = coverageResult != null ? coverageResult.lineCoverage : new HashMap<>();
 		branchCoverage = coverageResult != null ? coverageResult.branchCoverage : new HashMap<>();
-		methodCoverage = coverageResult != null ? coverageResult.methodCoverage : new HashMap<>();
+		functionCoverage = coverageResult != null ? coverageResult.functionCoverage : new HashMap<>();
 		this.analysisScope = analysisScope != null ? List.copyOf(analysisScope) : List.of();
 		if (coverageResult == null || coverageResult.lineCoverage.isEmpty()) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, WARNING_EMPTY_DATA));
@@ -40,7 +40,7 @@ public class CoverageDataManager {
 	public void clear() {
 		lineCoverage = new HashMap<>();
 		branchCoverage = new HashMap<>();
-		methodCoverage = new HashMap<>();
+		functionCoverage = new HashMap<>();
 		analysisScope = List.of();
 	}
 
@@ -52,8 +52,8 @@ public class CoverageDataManager {
 		return branchCoverage;
 	}
 
-	public Map<String, List<ReportParser.MethodCoverage>> getMethodCoverage() {
-		return methodCoverage;
+	public Map<String, List<ReportParser.FunctionCoverage>> getFunctionCoverage() {
+		return functionCoverage;
 	}
 
 	public List<String> getAnalysisScope() {

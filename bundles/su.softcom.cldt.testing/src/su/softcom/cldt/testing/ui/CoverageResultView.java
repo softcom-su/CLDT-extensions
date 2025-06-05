@@ -30,7 +30,7 @@ public class CoverageResultView extends ViewPart {
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String LINE_COUNTERS = Messages.CoverageResultView_1;
 	private static final String BRANCH_COUNTERS = Messages.CoverageResultView_2;
-	private static final String METHOD_COUNTERS = Messages.CoverageResultView_3;
+	private static final String FUNCTION_COUNTERS = Messages.CoverageResultView_3;
 	private static final String INFO_INITIALIZED = "CoverageResultView initialized";
 	private static final String INFO_DISPOSED = "CoverageResultView disposed";
 	private static final String INFO_EDITOR_OPENED = "Editor opened: %s";
@@ -156,7 +156,7 @@ public class CoverageResultView extends ViewPart {
 		var menuManager = getViewSite().getActionBars().getMenuManager();
 		menuManager.add(new SelectCountersAction(this, LINE_COUNTERS));
 		menuManager.add(new SelectCountersAction(this, BRANCH_COUNTERS));
-		menuManager.add(new SelectCountersAction(this, METHOD_COUNTERS));
+		menuManager.add(new SelectCountersAction(this, FUNCTION_COUNTERS));
 	}
 
 	private class SelectCountersAction extends Action {
@@ -189,7 +189,7 @@ public class CoverageResultView extends ViewPart {
 				return new String[] { Messages.CoverageResultView_9, Messages.CoverageResultView_10,
 						Messages.CoverageResultView_11, Messages.CoverageResultView_12 };
 			}
-			if (METHOD_COUNTERS.equals(counterType)) {
+			if (FUNCTION_COUNTERS.equals(counterType)) {
 				return new String[] { Messages.CoverageResultView_13, Messages.CoverageResultView_14,
 						Messages.CoverageResultView_15, Messages.CoverageResultView_16 };
 			}

@@ -27,7 +27,6 @@ import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.IWorkbenchPage;
-
 import su.softcom.cldt.core.CMakeCorePlugin;
 import su.softcom.cldt.core.cmake.ICMakeProject;
 import su.softcom.cldt.core.cmake.Target;
@@ -188,7 +187,8 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		} else {
 			LOGGER.log(new Status(IStatus.INFO, PLUGIN_ID,
 					"Skipping LCOV report generation: analysisScope is empty or report generation is disabled"));
-			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>());
+			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
+					new HashMap<>(), new HashMap<>());
 		}
 	}
 
@@ -239,7 +239,8 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		if (coverageData == null || coverageData.fileCoverage.isEmpty()) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
 					"LCOV report is empty or invalid after filtering: " + reportPath));
-			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>());
+			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
+					new HashMap<>(), new HashMap<>());
 		}
 	}
 
@@ -318,9 +319,9 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 				}
 				view.setDataProvider(this);
 				view.setProject(project);
-				view.updateCoverageResults(
-						coverageData != null ? coverageData
-								: new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>()),
+				view.updateCoverageResults(coverageData != null ? coverageData
+						: new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
+								new HashMap<>(), new HashMap<>()),
 						updatedAnalysisScope);
 				view.setAnalysisScope(updatedAnalysisScope);
 			} catch (Exception e) {
@@ -334,11 +335,14 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		return coverageData != null ? coverageData.fileCoverage : null;
 	}
 
+	@Override
 	public ReportParser.CoverageResult getFullCoverageData() {
 		return coverageData != null
 				? new ReportParser.CoverageResult(new HashMap<>(coverageData.fileCoverage),
-						new HashMap<>(coverageData.lineCoverage), new HashMap<>(coverageData.nonMethodLineCoverage))
-				: null;
+						new HashMap<>(coverageData.lineCoverage), new HashMap<>(coverageData.nonFunctionLineCoverage),
+						new HashMap<>(coverageData.branchCoverage), new HashMap<>(coverageData.functionCoverage))
+				: new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+						new HashMap<>());
 	}
 
 	@Override
