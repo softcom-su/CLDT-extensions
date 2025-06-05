@@ -36,11 +36,6 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 	private static final ILog LOGGER = Platform.getLog(CoverageLaunchDelegate.class);
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String CMAKE_CONFIGURE_BUILDER_ID = "su.softcom.cldt.core.builder.configure";
-	private static final String ERROR_PROJECT_NAME = "Failed to get project name";
-	private static final String ERROR_TARGET_NAME = "Failed to get target name";
-	private static final String ERROR_EXECUTABLE_NOT_FOUND = "Executable not found for target: ";
-	private static final String ERROR_LAUNCH_FAILED = "Launch failed";
-	private static final String ERROR_LAUNCH_INTERRUPTED = "Launch interrupted";
 	private static final String PROFILE_RAW_FILE = "coverage.profraw";
 	private static final String PROFILE_DATA_FILE = "coverage.profdata";
 	private static final String REPORT_FILE = "coverage_report.lcov";
@@ -65,7 +60,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 	private IProject getProject(ILaunchConfiguration configuration) throws CoreException {
 		String projectName = configuration.getAttribute("projectName", (String) null);
 		if (projectName == null) {
-			throw newCoreException(ERROR_PROJECT_NAME, IStatus.ERROR);
+			throw newCoreException("Failed to get project name", IStatus.ERROR);
 		}
 		return ResourcesPlugin.getWorkspace().getRoot().getProject(projectName);
 	}
@@ -81,7 +76,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 	private String getTargetName(ILaunchConfiguration configuration) throws CoreException {
 		String targetName = configuration.getAttribute("targetName", (String) null);
 		if (targetName == null) {
-			throw newCoreException(ERROR_TARGET_NAME, IStatus.ERROR);
+			throw newCoreException("Failed to get target name", IStatus.ERROR);
 		}
 		return targetName;
 	}
@@ -114,7 +109,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 
 		String executablePath = findExecutablePath(target, coverageDataDir);
 		if (executablePath == null) {
-			throw newCoreException(ERROR_EXECUTABLE_NOT_FOUND + targetName, IStatus.ERROR);
+			throw newCoreException("Executable not found for target: " + targetName, IStatus.ERROR);
 		}
 		return executablePath;
 	}
@@ -151,12 +146,12 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			updateCoverageViewData(coverageData, analysisScope, project);
 			refreshBuildFolder(buildFolder);
 		} catch (IOException e) {
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, ERROR_LAUNCH_FAILED, e));
-			throw newCoreException(ERROR_LAUNCH_FAILED, IStatus.ERROR, e);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Launch failed", e));
+			throw newCoreException("Launch failed", IStatus.ERROR, e);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, ERROR_LAUNCH_INTERRUPTED, e));
-			throw newCoreException(ERROR_LAUNCH_INTERRUPTED, IStatus.ERROR, e);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Launch interrupted", e));
+			throw newCoreException("Launch interrupted", IStatus.ERROR, e);
 		}
 	}
 
@@ -169,9 +164,9 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 
 		File profrawFile = new File(rawProfilePath);
 		if (!profrawFile.exists()) {
-			String errorMsg = "Profile raw data file was not generated: " + rawProfilePath + ", Output: " + output;
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, errorMsg));
-			throw new IOException(errorMsg);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					"Profile raw data file was not generated: " + rawProfilePath + ", Output: " + output));
+			throw new IOException("Profile raw data file was not generated: " + rawProfilePath);
 		}
 	}
 
@@ -186,7 +181,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 			generateLcovReport(commandExecutor, executablePath, profileDataPath, reportPath, analysisScope);
 		} else {
 			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
-					new HashMap<>(), new HashMap<>());
+					new HashMap<>(), new HashMap<>(), new HashMap<>());
 		}
 	}
 
@@ -198,16 +193,15 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		try {
 			commandExecutor.executeCommand(profdataCommand, null, null, output);
 		} catch (IOException e) {
-			String errorMsg = "Failed to execute llvm-profdata: " + output;
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, errorMsg, e));
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to execute llvm-profdata: " + output, e));
 			throw e;
 		}
 
 		File profdataFile = new File(profileDataPath);
 		if (!profdataFile.exists()) {
-			String errorMsg = "Profile data file was not generated: " + profileDataPath + ", Output: " + output;
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, errorMsg));
-			throw new IOException(errorMsg);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					"Profile data file was not generated: " + profileDataPath + ", Output: " + output));
+			throw new IOException("Profile data file was not generated: " + profileDataPath);
 		}
 	}
 
@@ -219,26 +213,25 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 		try {
 			commandExecutor.executeCommand(covCommand, null, reportPath, output);
 		} catch (IOException e) {
-			String errorMsg = "Failed to execute llvm-cov: " + output + ", command: " + covCommand;
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, errorMsg, e));
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					"Failed to execute llvm-cov: " + output + ", command: " + covCommand, e));
 			throw new IOException("LCOV report generation failed", e);
 		}
 
 		File reportFile = new File(reportPath);
 		if (!reportFile.exists()) {
-			String errorMsg = "LCOV report was not generated: " + reportPath;
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, errorMsg));
-			throw new IOException(errorMsg);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "LCOV report was not generated: " + reportPath));
+			throw new IOException("LCOV report was not generated: " + reportPath);
 		}
 
 		List<String> reportLines = Files.readAllLines(Paths.get(reportPath));
 		List<String> filteredReportLines = filterLcovReport(reportLines, analysisScope);
 		coverageData = ReportParser.parseLcovReport(filteredReportLines);
-		if (coverageData == null || coverageData.fileCoverage.isEmpty()) {
+		if (coverageData == null || coverageData.fileCoverage().isEmpty()) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
 					"LCOV report is empty or invalid after filtering: " + reportPath));
 			coverageData = new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
-					new HashMap<>(), new HashMap<>());
+					new HashMap<>(), new HashMap<>(), new HashMap<>());
 		}
 	}
 
@@ -316,7 +309,7 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 				view.setProject(project);
 				view.updateCoverageResults(coverageData != null ? coverageData
 						: new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(),
-								new HashMap<>(), new HashMap<>()),
+								new HashMap<>(), new HashMap<>(), new HashMap<>()),
 						updatedAnalysisScope);
 				view.setAnalysisScope(updatedAnalysisScope);
 			} catch (Exception e) {
@@ -327,17 +320,17 @@ public class CoverageLaunchDelegate implements ILaunchConfigurationDelegate2, Co
 
 	@Override
 	public Map<String, Map<String, Object[]>> getCoverageData() {
-		return coverageData != null ? coverageData.fileCoverage : null;
+		return coverageData != null ? coverageData.fileCoverage() : null;
 	}
 
 	@Override
 	public ReportParser.CoverageResult getFullCoverageData() {
-		return coverageData != null
-				? new ReportParser.CoverageResult(new HashMap<>(coverageData.fileCoverage),
-						new HashMap<>(coverageData.lineCoverage), new HashMap<>(coverageData.nonFunctionLineCoverage),
-						new HashMap<>(coverageData.branchCoverage), new HashMap<>(coverageData.functionCoverage))
+		return coverageData != null ? new ReportParser.CoverageResult(new HashMap<>(coverageData.fileCoverage()),
+				new HashMap<>(coverageData.lineCoverage()), new HashMap<>(coverageData.nonFunctionLineCoverage()),
+				new HashMap<>(coverageData.branchCoverage()), new HashMap<>(coverageData.functionCoverage()),
+				new HashMap<>(coverageData.annotationFunctionCoverage()))
 				: new ReportParser.CoverageResult(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
-						new HashMap<>());
+						new HashMap<>(), new HashMap<>());
 	}
 
 	@Override

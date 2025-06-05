@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 public class CommandExecutor {
-	private static final String ERROR_PREFIX = "ERROR: ";
-
 	public int executeCommand(List<String> command, Map<String, String> env, String outputFile, StringBuilder output)
 			throws IOException, InterruptedException {
 		ProcessBuilder pb = new ProcessBuilder(command);
@@ -45,7 +43,7 @@ public class CommandExecutor {
 			appendLines(reader, output, "");
 		}
 		try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-			appendLines(errorReader, output, ERROR_PREFIX);
+			appendLines(errorReader, output, "ERROR: ");
 		}
 	}
 

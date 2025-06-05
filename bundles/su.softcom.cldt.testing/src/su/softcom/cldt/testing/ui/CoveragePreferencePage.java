@@ -1,5 +1,9 @@
 package su.softcom.cldt.testing.ui;
 
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.preference.PreferencePage;
 import org.eclipse.swt.SWT;
@@ -20,6 +24,8 @@ import su.softcom.cldt.testing.core.Activator;
 import su.softcom.cldt.testing.core.CoverageSettingsManager;
 
 public class CoveragePreferencePage extends PreferencePage implements IWorkbenchPreferencePage {
+	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
+	private static final ILog LOGGER = Platform.getLog(CoveragePreferencePage.class);
 	private static final String OPEN_VIEW_AUTO = "coverage.open_view_auto";
 	private static final String GENERATE_REPORT = "coverage.generate_report";
 	private static final String CLEAN_PROFILE_DATA = "coverage.clean_profile_data";
@@ -27,8 +33,6 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 	private static final String EXCLUDES = "coverage.excludes";
 	private static final String LLVM_COV_PATH = "coverage.llvm_cov_path";
 	private static final String LLVM_PROFDATA_PATH = "coverage.llvm_profdata_path";
-	private static final String ERROR_NO_STORE = "Error: Preference store is not available. Please check plugin initialization.";
-	private static final String ERROR_NOT_INITIALIZED = "Plugin is not initialized. Preference store is unavailable.";
 
 	private Button openViewAutoCheck;
 	private Button generateReportCheck;
@@ -47,15 +51,19 @@ public class CoveragePreferencePage extends PreferencePage implements IWorkbench
 		if (activator != null) {
 			setPreferenceStore(activator.getPreferenceStore());
 		} else {
-			setErrorMessage(ERROR_NOT_INITIALIZED);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					"Plugin is not initialized. Preference store is unavailable."));
+			setErrorMessage("Plugin is not initialized. Preference store is unavailable.");
 		}
 	}
 
 	@Override
 	protected Control createContents(Composite parent) {
 		if (getPreferenceStore() == null) {
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					"Preference store is not available. Please check plugin initialization."));
 			Label errorLabel = new Label(parent, SWT.NONE);
-			errorLabel.setText(ERROR_NO_STORE);
+			errorLabel.setText("Error: Preference store is not available. Please check plugin initialization.");
 			return errorLabel;
 		}
 

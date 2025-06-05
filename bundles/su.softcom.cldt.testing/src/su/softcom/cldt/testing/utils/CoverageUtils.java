@@ -12,8 +12,6 @@ import su.softcom.cldt.testing.core.ReportParser;
 
 public class CoverageUtils {
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
-	private static final String WARNING_INVALID_INPUT = "Invalid input: path=%s, pattern=%s";
-	private static final String WARNING_INVALID_PATTERN = "Invalid pattern syntax: %s, Error: %s";
 	private static final ILog LOGGER = Platform.getLog(CoverageUtils.class);
 
 	private CoverageUtils() {
@@ -21,6 +19,7 @@ public class CoverageUtils {
 
 	public static String removeFirstSegment(String path, int number) {
 		if (path == null || path.isEmpty()) {
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Path cannot be null or empty"));
 			throw new IllegalArgumentException("Path cannot be null or empty");
 		}
 		String result = path.startsWith("/") ? path.substring(1) : path;
@@ -63,7 +62,7 @@ public class CoverageUtils {
 
 	public static boolean matchesPattern(String path, String pattern) {
 		if (path == null || pattern == null) {
-			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, String.format(WARNING_INVALID_INPUT, path, pattern)));
+			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID, "Invalid input: path=" + path + ", pattern=" + pattern));
 			return false;
 		}
 		if (pattern.equals("*")) {
@@ -76,7 +75,7 @@ public class CoverageUtils {
 			return Pattern.compile(regexPattern).matcher(normalizedPath).matches();
 		} catch (PatternSyntaxException e) {
 			LOGGER.log(new Status(IStatus.WARNING, PLUGIN_ID,
-					String.format(WARNING_INVALID_PATTERN, normalizedPattern, e.getMessage())));
+					"Invalid pattern syntax: " + normalizedPattern + ", Error: " + e.getMessage()));
 			return false;
 		}
 	}

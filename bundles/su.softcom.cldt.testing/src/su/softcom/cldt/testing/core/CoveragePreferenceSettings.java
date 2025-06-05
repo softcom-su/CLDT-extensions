@@ -1,8 +1,14 @@
 package su.softcom.cldt.testing.core;
 
+import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.preference.IPreferenceStore;
 
 public class CoveragePreferenceSettings {
+	private static final ILog LOGGER = Platform.getLog(CoveragePreferenceSettings.class);
+	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String OPEN_VIEW_AUTO = "coverage.open_view_auto";
 	private static final String GENERATE_REPORT = "coverage.generate_report";
 	private static final String CLEAN_PROFILE_DATA = "coverage.clean_profile_data";
@@ -35,15 +41,14 @@ public class CoveragePreferenceSettings {
 	private static final boolean DEFAULT_NOT_COVERED_OVERVIEW = true;
 	private static final String DEFAULT_NOT_COVERED_COLOR = "240,128,128";
 
-	private static final String ERROR_ACTIVATOR_NOT_INITIALIZED = "Activator is not initialized";
-
 	private CoveragePreferenceSettings() {
 	}
 
 	private static IPreferenceStore getStore() {
 		Activator activator = Activator.getDefault();
 		if (activator == null) {
-			throw new IllegalStateException(ERROR_ACTIVATOR_NOT_INITIALIZED);
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, "Activator is not initialized"));
+			throw new IllegalStateException("Activator is not initialized");
 		}
 		return activator.getPreferenceStore();
 	}

@@ -29,9 +29,6 @@ import su.softcom.cldt.testing.utils.CoverageUtils;
 public class AnnotationUpdater {
 	private static final String PLUGIN_ID = "su.softcom.cldt.testing";
 	private static final String MARKER_TYPE = "su.softcom.cldt.testing.coverage";
-	private static final String ERROR_DELETE_MARKERS = "Failed to delete coverage markers for excluded file: %s";
-	private static final String ERROR_CREATE_MARKERS = "Failed to create coverage markers for file: %s";
-	private static final String ERROR_BAD_LOCATION = "Failed to apply annotation due to bad location at line %d";
 	private static final ILog LOGGER = Platform.getLog(AnnotationUpdater.class);
 	private final CoverageDataManager dataManager;
 	private String currentMetric = Messages.CoverageResultView_1;
@@ -57,6 +54,7 @@ public class AnnotationUpdater {
 		String filePath = file.getFullPath().toString();
 		if (!isFileInAnalysisScope(filePath)) {
 			clearAnnotations(editor, filePath);
+			clearMarkers(file, filePath);
 			return;
 		}
 
@@ -67,6 +65,7 @@ public class AnnotationUpdater {
 
 		clearExistingAnnotations(model);
 		addAnnotations(model, editor, filePath);
+		createCoverageMarkers(file);
 	}
 
 	private IFile getFileFromEditor(ITextEditor editor) {
@@ -118,7 +117,7 @@ public class AnnotationUpdater {
 		if (lines != null && !lines.isEmpty()) {
 			for (ReportParser.LineCoverage line : lines) {
 				CoverageAnnotation annotation = createLineAnnotation(line, branches);
-				addAnnotationToModel(model, editor, line.lineNumber, annotation);
+				addAnnotationToModel(model, editor, line.lineNumber(), annotation);
 			}
 		}
 	}
@@ -126,8 +125,8 @@ public class AnnotationUpdater {
 	private CoverageAnnotation createLineAnnotation(ReportParser.LineCoverage line,
 			List<ReportParser.BranchCoverage> branches) {
 		String type;
-		String message = "Line " + line.lineNumber + ": ";
-		if (line.executionCount == 0) {
+		String message = "Line " + line.lineNumber() + ": ";
+		if (line.executionCount() == 0) {
 			type = CoverageAnnotation.TYPE_NOT_COVERED_LINE;
 			message += "Not covered";
 		} else {
@@ -136,9 +135,9 @@ public class AnnotationUpdater {
 			boolean anyBranchCovered = false;
 			if (branches != null) {
 				for (ReportParser.BranchCoverage branch : branches) {
-					if (branch.lineNumber == line.lineNumber) {
+					if (branch.lineNumber() == line.lineNumber()) {
 						hasBranches = true;
-						if (branch.covered) {
+						if (branch.covered()) {
 							anyBranchCovered = true;
 						} else {
 							allBranchesCovered = false;
@@ -170,7 +169,7 @@ public class AnnotationUpdater {
 			List<ReportParser.BranchCoverage> branches) {
 		HashMap<Integer, List<ReportParser.BranchCoverage>> branchesByLine = new HashMap<>();
 		for (ReportParser.BranchCoverage branch : branches) {
-			branchesByLine.computeIfAbsent(branch.lineNumber, k -> new ArrayList<>()).add(branch);
+			branchesByLine.computeIfAbsent(branch.lineNumber(), k -> new ArrayList<>()).add(branch);
 		}
 		return branchesByLine;
 	}
@@ -181,7 +180,7 @@ public class AnnotationUpdater {
 		boolean anyCovered = false;
 		boolean allCovered = true;
 		for (ReportParser.BranchCoverage branch : lineBranches) {
-			if (branch.covered) {
+			if (branch.covered()) {
 				anyCovered = true;
 			} else {
 				allCovered = false;
@@ -202,29 +201,39 @@ public class AnnotationUpdater {
 
 	private void addFunctionAnnotations(IAnnotationModel model, ITextEditor editor, String filePath) {
 		List<ReportParser.FunctionCoverage> functions = CoverageUtils.findFunctionCoverageForFile(filePath,
-				dataManager.getFunctionCoverage());
+				dataManager.getAnnotationFunctionCoverage());
 		if (functions != null && !functions.isEmpty()) {
-			Map<Integer, List<ReportParser.FunctionCoverage>> functionsByLine = new HashMap<>();
+			Map<String, List<ReportParser.FunctionCoverage>> functionsByNameAndLine = new HashMap<>();
 			for (ReportParser.FunctionCoverage function : functions) {
-				functionsByLine.computeIfAbsent(function.signatureLine, k -> new ArrayList<>()).add(function);
+				String key = function.name() + ":" + function.signatureLine();
+				functionsByNameAndLine.computeIfAbsent(key, k -> new ArrayList<>()).add(function);
 			}
-			for (var entry : functionsByLine.entrySet()) {
-				int signatureLine = entry.getKey();
+			for (var entry : functionsByNameAndLine.entrySet()) {
+				int signatureLine = Integer.parseInt(entry.getKey().split(":")[1]);
 				List<ReportParser.FunctionCoverage> lineFunctions = entry.getValue();
-				boolean anyCovered = lineFunctions.stream().anyMatch(f -> f.executionCount > 0);
-				boolean anyNotCovered = !anyCovered;
-				ReportParser.FunctionCoverage representativeFunction = lineFunctions.get(0);
-				CoverageAnnotation annotation = createFunctionAnnotation(representativeFunction, anyNotCovered);
+				CoverageAnnotation annotation = createFunctionAnnotation(signatureLine, lineFunctions);
 				addAnnotationToModel(model, editor, signatureLine, annotation);
 			}
 		}
 	}
 
-	private CoverageAnnotation createFunctionAnnotation(ReportParser.FunctionCoverage function, boolean anyNotCovered) {
-		String type = anyNotCovered ? CoverageAnnotation.TYPE_NOT_COVERED_FUNCTION
-				: CoverageAnnotation.TYPE_COVERED_FUNCTION;
-		String message = String.format("Function %s at line %d: %s", function.name, function.signatureLine,
-				anyNotCovered ? "Not covered" : "Covered");
+	private CoverageAnnotation createFunctionAnnotation(int signatureLine,
+			List<ReportParser.FunctionCoverage> lineFunctions) {
+		boolean anyCovered = lineFunctions.stream().anyMatch(f -> f.executionCount() > 0);
+		boolean allCovered = lineFunctions.stream().allMatch(f -> f.executionCount() > 0);
+		ReportParser.FunctionCoverage representativeFunction = lineFunctions.get(0);
+		String type;
+		String message = String.format("Function %s at line %d: ", representativeFunction.name(), signatureLine);
+		if (allCovered) {
+			type = CoverageAnnotation.TYPE_COVERED_FUNCTION;
+			message += "Covered";
+		} else if (!anyCovered) {
+			type = CoverageAnnotation.TYPE_NOT_COVERED_FUNCTION;
+			message += "Not covered";
+		} else {
+			type = CoverageAnnotation.TYPE_PARTIALLY_COVERED_FUNCTION;
+			message += "Partially covered";
+		}
 		return new CoverageAnnotation(type, message);
 	}
 
@@ -237,7 +246,8 @@ public class AnnotationUpdater {
 			int length = provider.getDocument(input).getLineLength(lineNumber - 1);
 			model.addAnnotation(annotation, new Position(offset, length));
 		} catch (org.eclipse.jface.text.BadLocationException e) {
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, String.format(ERROR_BAD_LOCATION, lineNumber), e));
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					String.format("Failed to apply annotation due to bad location at line %d", lineNumber), e));
 		}
 	}
 
@@ -277,125 +287,140 @@ public class AnnotationUpdater {
 		}
 
 		try {
-			file.deleteMarkers(MARKER_TYPE, true, IResource.DEPTH_INFINITE);
+			file.deleteMarkers(MARKER_TYPE, true, IResource.DEPTH_ZERO);
 			if (currentMetric.equals(Messages.CoverageResultView_1)) {
-				createLineMarkers(file, filePath);
+				createLineCoverageMarkers(file, filePath);
 			} else if (currentMetric.equals(Messages.CoverageResultView_2)) {
-				createBranchMarkers(file, filePath);
+				createBranchCoverageMarkers(file, filePath);
 			} else if (currentMetric.equals(Messages.CoverageResultView_3)) {
-				createFunctionMarkers(file, filePath);
+				createFunctionCoverageMarkers(file, filePath);
 			}
 		} catch (CoreException e) {
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, String.format(ERROR_CREATE_MARKERS, filePath), e));
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					String.format("Failed to create coverage markers for file: %s", filePath), e));
 		}
 	}
 
-	private void clearMarkers(IFile file, String filePath) {
-		try {
-			file.deleteMarkers(MARKER_TYPE, true, IResource.DEPTH_INFINITE);
-		} catch (CoreException e) {
-			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID, String.format(ERROR_DELETE_MARKERS, filePath), e));
-		}
-	}
-
-	private void createLineMarkers(IFile file, String filePath) throws CoreException {
+	private void createLineCoverageMarkers(IFile file, String filePath) throws CoreException {
 		List<ReportParser.LineCoverage> lines = CoverageUtils.findCoverageForFile(filePath,
 				dataManager.getCoverageData());
 		List<ReportParser.BranchCoverage> branches = CoverageUtils.findBranchCoverageForFile(filePath,
 				dataManager.getBranchCoverage());
 		if (lines != null && !lines.isEmpty()) {
 			for (ReportParser.LineCoverage line : lines) {
-				String message = createLineMarkerMessage(line, branches);
-				createMarker(file, line.lineNumber, message);
-			}
-		}
-	}
-
-	private String createLineMarkerMessage(ReportParser.LineCoverage line, List<ReportParser.BranchCoverage> branches) {
-		String message = "Line " + line.lineNumber + ": ";
-		if (line.executionCount == 0) {
-			return message + "Not Covered";
-		}
-		boolean hasBranches = false;
-		boolean allBranchesCovered = true;
-		boolean anyBranchCovered = false;
-		if (branches != null) {
-			for (ReportParser.BranchCoverage branch : branches) {
-				if (branch.lineNumber == line.lineNumber) {
-					hasBranches = true;
-					if (branch.covered) {
-						anyBranchCovered = true;
+				String message;
+				int severity;
+				if (line.executionCount() == 0) {
+					message = "Line " + line.lineNumber() + ": Not covered";
+					severity = IMarker.SEVERITY_WARNING;
+				} else {
+					boolean hasBranches = false;
+					boolean allBranchesCovered = true;
+					boolean anyBranchCovered = false;
+					if (branches != null) {
+						for (ReportParser.BranchCoverage branch : branches) {
+							if (branch.lineNumber() == line.lineNumber()) {
+								hasBranches = true;
+								if (branch.covered()) {
+									anyBranchCovered = true;
+								} else {
+									allBranchesCovered = false;
+								}
+							}
+						}
+					}
+					if (hasBranches && anyBranchCovered && !allBranchesCovered) {
+						message = "Line " + line.lineNumber() + ": Partially covered";
+						severity = IMarker.SEVERITY_WARNING;
 					} else {
-						allBranchesCovered = false;
+						message = "Line " + line.lineNumber() + ": Covered";
+						severity = IMarker.SEVERITY_INFO;
 					}
 				}
+				createMarker(file, line.lineNumber(), message, severity);
 			}
 		}
-		return message + (hasBranches && anyBranchCovered && !allBranchesCovered ? "Partially Covered" : "Covered");
 	}
 
-	private void createBranchMarkers(IFile file, String filePath) throws CoreException {
+	private void createBranchCoverageMarkers(IFile file, String filePath) throws CoreException {
 		List<ReportParser.BranchCoverage> branches = CoverageUtils.findBranchCoverageForFile(filePath,
 				dataManager.getBranchCoverage());
 		if (branches != null && !branches.isEmpty()) {
 			HashMap<Integer, List<ReportParser.BranchCoverage>> branchesByLine = groupBranchesByLine(branches);
-			for (var entry : branchesByLine.entrySet()) {
-				String message = createBranchMarkerMessage(entry.getKey(), entry.getValue());
-				createMarker(file, entry.getKey(), message);
+			for (Map.Entry<Integer, List<ReportParser.BranchCoverage>> entry : branchesByLine.entrySet()) {
+				int lineNumber = entry.getKey();
+				List<ReportParser.BranchCoverage> lineBranches = entry.getValue();
+				boolean anyCovered = false;
+				boolean allCovered = true;
+				for (ReportParser.BranchCoverage branch : lineBranches) {
+					if (branch.covered()) {
+						anyCovered = true;
+					} else {
+						allCovered = false;
+					}
+				}
+				String message;
+				int severity;
+				if (allCovered) {
+					message = "Branch at line " + lineNumber + ": Covered";
+					severity = IMarker.SEVERITY_INFO;
+				} else if (!anyCovered) {
+					message = "Branch at line " + lineNumber + ": Not covered";
+					severity = IMarker.SEVERITY_WARNING;
+				} else {
+					message = "Branch at line " + lineNumber + ": Partially covered";
+					severity = IMarker.SEVERITY_WARNING;
+				}
+				createMarker(file, lineNumber, message, severity);
 			}
 		}
 	}
 
-	private String createBranchMarkerMessage(int lineNumber, List<ReportParser.BranchCoverage> lineBranches) {
-		String message = "Branch at line " + lineNumber + ": ";
-		boolean anyCovered = false;
-		boolean allCovered = true;
-		for (ReportParser.BranchCoverage branch : lineBranches) {
-			if (branch.covered) {
-				anyCovered = true;
-			} else {
-				allCovered = false;
-			}
-		}
-		if (allCovered) {
-			return message + "Covered";
-		}
-		return message + (anyCovered ? "Partially Covered" : "Not Covered");
-	}
-
-	private void createFunctionMarkers(IFile file, String filePath) throws CoreException {
+	private void createFunctionCoverageMarkers(IFile file, String filePath) throws CoreException {
 		List<ReportParser.FunctionCoverage> functions = CoverageUtils.findFunctionCoverageForFile(filePath,
-				dataManager.getFunctionCoverage());
+				dataManager.getAnnotationFunctionCoverage());
 		if (functions != null && !functions.isEmpty()) {
-			Map<Integer, List<ReportParser.FunctionCoverage>> functionsByLine = new HashMap<>();
+			Map<String, List<ReportParser.FunctionCoverage>> functionsByNameAndLine = new HashMap<>();
 			for (ReportParser.FunctionCoverage function : functions) {
-				functionsByLine.computeIfAbsent(function.signatureLine, k -> new ArrayList<>()).add(function);
+				String key = function.name() + ":" + function.signatureLine();
+				functionsByNameAndLine.computeIfAbsent(key, k -> new ArrayList<>()).add(function);
 			}
-			for (var entry : functionsByLine.entrySet()) {
-				int signatureLine = entry.getKey();
+			for (Map.Entry<String, List<ReportParser.FunctionCoverage>> entry : functionsByNameAndLine.entrySet()) {
+				int signatureLine = Integer.parseInt(entry.getKey().split(":")[1]);
 				List<ReportParser.FunctionCoverage> lineFunctions = entry.getValue();
-				boolean anyCovered = lineFunctions.stream().anyMatch(f -> f.executionCount > 0);
-				boolean anyNotCovered = !anyCovered;
-				ReportParser.FunctionCoverage representativeFunction = lineFunctions.get(0);
-				String message = String.format("Function %s at line %d: %s", representativeFunction.name, signatureLine,
-						anyNotCovered ? "Not covered" : "Covered");
-				createMarker(file, signatureLine, message);
+				boolean anyCovered = lineFunctions.stream().anyMatch(f -> f.executionCount() > 0);
+				boolean allCovered = lineFunctions.stream().allMatch(f -> f.executionCount() > 0);
+				String functionName = lineFunctions.get(0).name();
+				String message;
+				int severity;
+				if (allCovered) {
+					message = "Function " + functionName + " at line " + signatureLine + ": Covered";
+					severity = IMarker.SEVERITY_INFO;
+				} else if (!anyCovered) {
+					message = "Function " + functionName + " at line " + signatureLine + ": Not covered";
+					severity = IMarker.SEVERITY_WARNING;
+				} else {
+					message = "Function " + functionName + " at line " + signatureLine + ": Partially covered";
+					severity = IMarker.SEVERITY_WARNING;
+				}
+				createMarker(file, signatureLine, message, severity);
 			}
 		}
 	}
 
-	private void createMarker(IFile file, int lineNumber, String message) throws CoreException {
-		IMarker[] existingMarkers = file.findMarkers(MARKER_TYPE, true, IResource.DEPTH_INFINITE);
-		for (IMarker marker : existingMarkers) {
-			if (marker.getAttribute(IMarker.LINE_NUMBER, -1) == lineNumber) {
-				marker.setAttribute(IMarker.MESSAGE, message);
-				return;
-			}
-		}
-
+	private void createMarker(IFile file, int lineNumber, String message, int severity) throws CoreException {
 		IMarker marker = file.createMarker(MARKER_TYPE);
-		marker.setAttribute(IMarker.LINE_NUMBER, lineNumber);
 		marker.setAttribute(IMarker.MESSAGE, message);
-		marker.setAttribute(IMarker.SEVERITY, IMarker.SEVERITY_INFO);
+		marker.setAttribute(IMarker.SEVERITY, severity);
+		marker.setAttribute(IMarker.LINE_NUMBER, lineNumber);
+	}
+
+	private void clearMarkers(IFile file, String filePath) {
+		try {
+			file.deleteMarkers(MARKER_TYPE, true, IResource.DEPTH_ZERO);
+		} catch (CoreException e) {
+			LOGGER.log(new Status(IStatus.ERROR, PLUGIN_ID,
+					String.format("Failed to delete coverage markers for excluded file: %s", filePath), e));
+		}
 	}
 }
