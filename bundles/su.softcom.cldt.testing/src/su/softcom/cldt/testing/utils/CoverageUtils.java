@@ -43,9 +43,9 @@ public class CoverageUtils {
 		return findCoverage(filePath, branchCoverage);
 	}
 
-	public static List<ReportParser.MethodCoverage> findMethodCoverageForFile(String filePath,
-			Map<String, List<ReportParser.MethodCoverage>> methodCoverage) {
-		return findCoverage(filePath, methodCoverage);
+	public static List<ReportParser.FunctionCoverage> findFunctionCoverageForFile(String filePath,
+			Map<String, List<ReportParser.FunctionCoverage>> functionCoverage) {
+		return findCoverage(filePath, functionCoverage);
 	}
 
 	private static <T> List<T> findCoverage(String filePath, Map<String, List<T>> coverageData) {

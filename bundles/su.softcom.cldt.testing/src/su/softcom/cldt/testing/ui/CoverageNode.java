@@ -5,7 +5,7 @@ import java.util.List;
 
 public class CoverageNode {
 	public enum NodeType {
-		FOLDER, FILE, CLASS, METHOD
+		FOLDER, FILE
 	}
 
 	private final String name;
