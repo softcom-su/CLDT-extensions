@@ -1,0 +1,3 @@
+[submodule "bundles/su.softcom.cldt.qt/BuildMigrator"]
+	path = bundles/su.softcom.cldt.qt/BuildMigrator
+	url = https://github.com/softcom-su/BuildMigrator
