@@ -4,7 +4,7 @@ Bundle-Name: CLDT QT Tests
 Bundle-SymbolicName: su.softcom.cldt.qt.tests
 Bundle-Version: 1.0.0.qualifier
 Automatic-Module-Name: su.softcom.cldt.qt.tests
-Bundle-RequiredExecutionEnvironment: JavaSE-21
+Bundle-RequiredExecutionEnvironment: JavaSE-17
 Require-Bundle: su.softcom.cldt.qt;bundle-version="1.0.0",
  su.softcom.cldt.core;bundle-version="0.1.0",
  su.softcom.cldt.ui;bundle-version="0.1.0",

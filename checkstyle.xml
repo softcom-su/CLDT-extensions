@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE module PUBLIC "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN" "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    This configuration file was written by the eclipse-cs plugin configuration editor
+-->
+<!--
+    Checkstyle-Configuration: Softcom style
+    Description: none
+-->
+<module name="Checker">
+  <property name="severity" value="warning"/>
+  <module name="TreeWalker">
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="^\t* "/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="Indent must use tab characters"/>
+    </module>
+    <module name="JavadocMethod">
+      <property name="accessModifiers" value="public, protected, package"/>
+    </module>
+    <module name="MissingJavadocMethod">
+      <property name="allowMissingPropertyJavadoc" value="true"/>
+      <property name="minLineCount" value="3"/>
+    </module>
+    <module name="AvoidNestedBlocks"/>
+    <module name="EmptyBlock"/>
+    <module name="EmptyCatchBlock"/>
+    <module name="LeftCurly"/>
+    <module name="RightCurly"/>
+    <module name="NeedBraces"/>
+    <module name="MissingJavadocMethod">
+      <property name="allowedAnnotations" value="Override, Test"/>
+    </module>
+    <module name="ArrayTypeStyle"/>
+    <module name="UnusedImports"/>
+    <module name="ImportOrder">
+      <property name="groups" value="java, com, org.eclipse"/>
+      <property name="separated" value="true"/>
+    </module>
+    <module name="UnusedLocalVariable"/>
+    <module name="NestedTryDepth">
+      <property name="max" value="2"/>
+    </module>
+    <module name="IllegalThrows"/>
+    <module name="HiddenField">
+      <property name="tokens" value="VARIABLE_DEF"/>
+    </module>
+    <module name="DeclarationOrder"/>
+  </module>
+  <module name="RegexpMultiline">
+    <property name="format" value="\r\n"/>
+    <property name="message" value="CRLF line endings are prohibited"/>
+  </module>
+  <module name="SuppressionFilter">
+    <property name="file" value="checkstyle-suppressions.xml"/>
+    <property name="optional" value="true"/>
+  </module>
+</module>

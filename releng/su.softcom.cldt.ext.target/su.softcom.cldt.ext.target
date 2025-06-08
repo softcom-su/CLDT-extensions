@@ -5,6 +5,7 @@
 		<location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="planner" includeSource="true" type="InstallableUnit">
 			<repository location="https://nexus.softcom.su/repository/cldt/latest"/>
 			<unit id="su.softcom.cldt.feature.feature.group" version="4.4.0"/>
+			<unit id="su.softcom.nexus.hsa"/>
 		</location>
 		<location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="planner" includeSource="true" type="InstallableUnit">
 			<repository location="https://download.eclipse.org/releases/2023-03/"/>

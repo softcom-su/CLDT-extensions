@@ -16,6 +16,6 @@
 		<relativePath>./releng/su.softcom.cldt.ext.parent</relativePath>
 	</parent>
 	<modules>
-		<module>releng/su.softcom.cldt.aggregator</module>
+		<module>releng/su.softcom.cldt.ext.aggregator</module>
 	</modules>
 </project>
