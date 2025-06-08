@@ -18,6 +18,8 @@
 		<module>../su.softcom.cldt.ext.target</module>
 		<module>../../bundles/su.softcom.cldt.qt</module>
 		<module>../../tests/su.softcom.cldt.qt.tests</module>
+		<module>../../bundles/su.softcom.cldt.testing</module>
+		<module>../../tests/su.softcom.cldt.testing.tests</module>
 	</modules>
 
 </project>
