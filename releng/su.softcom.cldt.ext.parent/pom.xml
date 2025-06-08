@@ -154,7 +154,7 @@
 					<target>
 						<artifact>
 							<groupId>${project.parent.groupId}</groupId>
-							<artifactId>${project.parent.groupId}.target</artifactId>
+							<artifactId>${project.parent.groupId}.ext.target</artifactId>
 							<version>${project.parent.version}</version>
 						</artifact>
 					</target>
