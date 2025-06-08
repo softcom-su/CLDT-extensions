@@ -3,9 +3,8 @@
 <target name="su.softcom.cldt.ext">
 	<locations>
 		<location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="planner" includeSource="true" type="InstallableUnit">
-			<repository location="https://nexus.softcom.su/repository/cldt/latest"/>
+			<repository id="su.softcom.nexus.cldt" location="https://nexus.softcom.su/repository/cldt/latest"/>
 			<unit id="su.softcom.cldt.feature.feature.group" version="4.4.0"/>
-			<unit id="su.softcom.nexus.hsa"/>
 		</location>
 		<location includeAllPlatforms="false" includeConfigurePhase="true" includeMode="planner" includeSource="true" type="InstallableUnit">
 			<repository location="https://download.eclipse.org/releases/2023-03/"/>
@@ -86,6 +85,17 @@
 					<version>4.2.1</version>
 					<type>jar</type>
 				</dependency>
+<dependency>
+    <groupId>net.bytebuddy</groupId>
+    <artifactId>byte-buddy</artifactId>
+    <version>1.17.5</version>
+</dependency>
+<dependency>
+    <groupId>net.bytebuddy</groupId>
+    <artifactId>byte-buddy-agent</artifactId>
+    <version>1.17.5</version>
+    <scope>test</scope>
+</dependency>
 
 			</dependencies>
 		</location>
